@@ -1,0 +1,3 @@
+﻿import path from 'node:path';import {getJob,renderDir} from '../../../../../lib/server/render';import {apiError,streamFile} from '../../../../../lib/server/store';
+export const runtime='nodejs';export const dynamic='force-dynamic';
+export async function GET(request:Request,{params}:{params:Promise<{id:string}>}){try{const job=await getJob((await params).id);if(job.status!=='completed')throw new Error('완료된 영상만 다운로드할 수 있습니다.');return await streamFile(path.join(renderDir(job.id),'output.mp4'),'video/mp4',request,new URL(request.url).searchParams.has('preview')?undefined:`photo-wall-${job.id.slice(0,8)}.mp4`);}catch(e){return apiError(e,404);}}

@@ -1,0 +1,22 @@
+﻿services:
+  motion-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: motion-studio:local
+    container_name: motion-studio
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MOTION_STUDIO_PORT:-4102}:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      REMOTION_BROWSER_EXECUTABLE: /usr/bin/chromium
+      REMOTION_GL: swangle
+    volumes:
+      - ./.local-data:/app/.local-data
+      - ./out:/app/out
+      - ./input:/app/input:ro
+    init: true

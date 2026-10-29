@@ -1,0 +1,4 @@
+﻿"use client";
+import {useEffect,useState} from 'react';import dynamic from 'next/dynamic';import type {Project,MediaAsset} from '../lib/model';
+const WebIntro=dynamic(()=>import('./WebIntro'),{ssr:false});
+export default function PublicIntro({id}:{id:string}){const [project,setProject]=useState<Project|null>(null),[media,setMedia]=useState<MediaAsset[]>([]),[error,setError]=useState('');useEffect(()=>{Promise.all([fetch(`/api/projects/${id}`).then(async r=>{const p=await r.json();if(!r.ok)throw new Error(p.error);return p;}),fetch('/api/media').then(r=>r.json())]).then(([p,m])=>{setProject(p);setMedia(m);}).catch(e=>setError(e.message));},[id]);return error?<main className="public-intro" role="alert">{error}</main>:project?<WebIntro project={project} media={media}/>:<div className="empty-state">인트로를 불러오고 있습니다…</div>;}

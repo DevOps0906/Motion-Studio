@@ -1,0 +1,36 @@
+{
+  "name": "motion-studio",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "start": "next start",
+    "video:studio": "remotion studio remotion/index.ts",
+    "video:render": "remotion render remotion/index.ts PhotoWallIntro out/intro.mp4",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/test-core.cjs"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.180.0",
+    "@react-three/fiber": "^9.0.0",
+    "@react-three/drei": "^10.0.0",
+    "gsap": "^3.13.0",
+    "remotion": "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/three": "^4.0.0",
+    "sharp": "0.35.5",
+    "@remotion/bundler": "4.0.539",
+    "@remotion/renderer": "4.0.539"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.180.0"
+  }
+}

@@ -1,1 +1,228 @@
-# Motion-Studio
+# Motion Studio
+
+하나의 공유 미디어·모션 기반에서 웹, 3D 공간, 영상을 만드는 로컬 제작 플랫폼입니다.
+
+첫 템플릿: **사진 6~36장 + 로고 → 15초 유튜브 인트로 → 1080p MP4**.
+
+저장소: [DevOps0906/Motion-Studio](https://github.com/DevOps0906/Motion-Studio) · 기본 브랜치: `main`.
+
+## 제품 기획과 개발 범위
+
+하나의 프로젝트·미디어 라이브러리를 웹사이트, 3D 공간, 영상 제작에서 공유하는 것이 목표입니다. 현재는 로컬 단일 사용자 제작 도구입니다.
+
+| 작업 공간 | 현재 구현 | 다음 기획 |
+| --- | --- | --- |
+| 웹사이트 | GSAP·ScrollTrigger 기반 `/showcase` 랜딩 프리뷰 | 벤치마크 URL·캡처와 브랜드 정보 분석 → 반응형 페이지 생성 → 편집·배포 |
+| 3D 공간 | R3F 사진 갤러리, GLB 건축 모델 미리보기·라이브러리 | 공간·객체 편집, CAD 파생 모델과 메타데이터 연계 |
+| 영상 | 사진·로고 15초 자동 인트로, 세부 편집, 서버 MP4 렌더 | 랭킹 쇼츠, 자동 자막, 제품 비교 |
+
+첫 제작 흐름은 **사진 6~36장 선택 → 로고 선택 → 선택 브랜드명 입력 → 프로젝트 저장 → 렌더 → 결과 검수·다운로드**입니다. 기본 출력은 1920×1080, 30fps, 15초(450프레임), H.264 MP4이며 로고·브랜드 엔딩은 11.8~15초에 나타납니다. 음악은 선택 사항입니다.
+
+개발 순서는 기획·입력 계약 → 화면 설계 → 공통 에셋·프로젝트 기반 → 모듈 구현 → 타입·계약·브라우저·영상 검증 → 문서·배포 검토입니다. 웹사이트 생성기, 외부 AI·음성인식, 계정·결제·클라우드 큐는 후속 범위입니다. 건축 확장은 Rhino·Grasshopper/Fusion 제작 → 모델 검증·변환 → R3F 웹 뷰어 → Unity/Unreal 체험을 계획하며, 현재 CAD 도구 연결이나 자동 모델링은 구현하지 않았습니다.
+
+## 디자인과 화면 구성
+
+대시보드는 **제작 버튼 → 웹·3D·영상 작업 공간 → 실제 작업 수 → 프로젝트 → 공유 미디어 → 템플릿** 순서로 구성합니다. 빠른 제작에서는 사진과 로고를 분리하고, 상세 편집에서는 좌측 미디어·중앙 16:9 프리뷰·우측 속성·하단 타임라인을 사용합니다. 준비 중 기능은 기획 상태로 표시합니다.
+
+| 디자인 항목 | 명세 |
+| --- | --- |
+| 배경 / 내비게이션 / 카드 | `#0B1020` / `#0E1526` / `#151E30` |
+| 테두리 / 본문 / 보조 글자 | `#334155` / `#F1F5F9` / `#B6C2D6` |
+| 강조 | `#C4B5FD`, 웹 보라·3D 파랑·영상 분홍 |
+| 모서리 / 간격 / 글꼴 | 10~18px / 4px 배수 / 시스템 한글 sans-serif |
+| 반응형·접근성 목표 | 1440·1024·390px, 키보드 포커스, 상태 문구, 모션 감소 설정 대응 |
+
+![Motion Studio 대시보드 디자인](design/motion-studio-dashboard.png)
+
+디자인 원본: [화면 리뷰](design/dashboard.html), [빠른 생성 화면](design/motion-studio-quick-create.png), [모바일 화면](design/motion-studio-mobile.png), [상세 디자인 명세](DESIGN.md).
+
+## 프로그램 구조도
+
+```mermaid
+flowchart TB
+  User[제작자] --> UI[Next.js 대시보드 · 편집기]
+  UI --> API[프로젝트 · 미디어 · 렌더 API]
+  UI --> Web[GSAP 웹 프리뷰]
+  UI --> Gallery[R3F 갤러리 · GLB 뷰어]
+  API --> Store[프로젝트 JSON · 에셋 저장]
+  API --> Template[버전 있는 인트로 템플릿]
+  Template --> Render[렌더 작업 관리]
+  Store --> Render
+  Render --> Snapshot[프로젝트 설정 · 에셋 사본]
+  Snapshot --> Worker[Node 렌더 워커]
+  Worker --> Remotion[Remotion · Chromium · 공통 R3F 씬]
+  Remotion --> MP4[H.264 · AAC MP4]
+  MP4 --> Result[미리보기 · 다운로드]
+  Store --> Disk[.local-data 로컬 파일]
+  Render --> Disk
+  Motion[공통 모션 · 카메라 · 레이아웃] --> Gallery
+  Motion --> Remotion
+  UI -. 확장 기획 .-> Future[웹 생성기 · 자막 · 랭킹 · CAD 연계]
+```
+
+웹 프리뷰의 시간 제어는 GSAP, 영상은 Remotion의 frame/fps를 사용합니다. 렌더 API와 빠른 생성 API는 공통 작업 관리기를 사용하며, 제출 당시의 설정과 에셋을 복사해 결과의 재현성을 유지합니다.
+
+```text
+Motion-Studio/
+├─ app/              # 페이지와 API 라우트
+├─ components/       # 대시보드·빠른 생성·웹/3D 프리뷰·공통 씬
+├─ lib/              # 프로젝트 스키마·템플릿·모션 계산
+│  └─ server/        # 파일 저장·모델 관리·렌더 작업
+├─ remotion/         # 영상 컴포지션과 프레임 기반 렌더
+├─ scripts/          # 렌더 워커·검증·샘플 모델 생성
+├─ public/           # 샘플 사진·GLB·SVG 구조도
+├─ design/           # 디자인 리뷰와 화면 이미지
+├─ input/            # 예제 입력 자료
+├─ .local-data/      # 실행 중 생성되는 프로젝트·미디어·작업 (Git 제외)
+├─ out/              # 로컬 출력·검증 자료 (Git 제외)
+└─ compose.yaml      # Docker 실행·데이터 볼륨
+```
+
+상세 구조도: [플랫폼 구조](ARCHITECTURE.md), [플랫폼 SVG](public/architecture.svg), [건축 시스템 계획](public/architectural-system.svg), [건축 개발주기](public/architectural-lifecycle.svg).
+
+## 실행
+
+Node.js 24 LTS와 npm을 권장합니다. 처음 내려받은 환경에서는 의존성을 먼저 설치합니다.
+
+```powershell
+git clone https://github.com/DevOps0906/Motion-Studio.git
+cd Motion-Studio
+npm ci
+```
+
+현재 디렉터리 `Motion-Studio`에서 실행합니다. 기존 상위 작업 폴더에서 시작했다면 먼저 `cd Motion-Studio`를 실행하세요.
+
+```powershell
+npm run dev -- -p 4101 -H 127.0.0.1
+```
+
+- 대시보드: http://127.0.0.1:4101/studio
+- GSAP 웹 랜딩 프리뷰: http://127.0.0.1:4101/showcase
+- 3D 포토 갤러리: http://127.0.0.1:4101/gallery
+- 플랫폼 구조도: http://127.0.0.1:4101/architecture
+- 건축 모델 뷰어: http://127.0.0.1:4101/architecture/viewer
+- 예제 GLB: `public/models/pavilion-demo.glb` (시각 검토용 개념 모델, 구조·법규 검증용 아님).
+
+### 실행 IP와 접속 주소
+
+| 실행 방식 | 바인딩 주소 | 접속 주소 |
+| --- | --- | --- |
+| 로컬 개발·프로덕션 | `127.0.0.1:4101` | [대시보드](http://127.0.0.1:4101/studio), `http://localhost:4101/studio` |
+| 동일 네트워크 접속 옵션 | `0.0.0.0:4101` | 현재 PC 기준 `http://192.168.35.83:4101/studio` |
+| Docker 기본 설정 | 호스트 `127.0.0.1:4102` → 컨테이너 `3000` | [Docker 대시보드](http://127.0.0.1:4102/studio) |
+
+`192.168.35.83`은 2026-10-29에 확인한 이 개발 PC의 이더넷 내부 IPv4이며 고정 주소나 공개 서비스 주소가 아닙니다. 공유기·네트워크가 바뀌면 `ipconfig`로 실제 IPv4를 확인해 주소를 바꿉니다. `0.0.0.0`은 서버 수신 설정이며 브라우저 접속 주소로 사용하지 않습니다.
+
+다른 PC·휴대폰에서 접속하려면 기존 서버를 종료하고 다음과 같이 실행합니다.
+
+```powershell
+npm run dev -- -p 4101 -H 0.0.0.0
+# 프로덕션은 npm run build 후:
+npm run start -- -p 4101 -H 0.0.0.0
+```
+
+같은 네트워크에 연결되어 있어야 하며 Windows 방화벽의 해당 포트 허용이 필요할 수 있습니다. 현재 앱은 인증이 없는 로컬 제작 도구이므로 신뢰하는 내부망에서 사용합니다. Docker 기본 포트는 루프백에만 연결되어 다른 기기에서 접근할 수 없습니다. 아래 주소들은 실행 설정이며 서버가 상시 실행 중임을 의미하지 않습니다.
+
+프로덕션 모드:
+
+```powershell
+npm run build
+npm run start -- -p 4101 -H 127.0.0.1
+```
+
+같은 포트의 개발 서버를 종료한 뒤 프로덕션 서버를 시작합니다. 이번 작업은 Node.js 24.13.0·Windows·설치된 Chrome에서 검증했습니다. 렌더 브라우저를 바꾸려면 `REMOTION_BROWSER_EXECUTABLE`에 실행 파일 경로를 지정하세요. 기본 렌더 GL은 안정성을 위한 `swangle`이며 `REMOTION_GL`로 변경할 수 있습니다.
+
+## Docker 백그라운드 실행
+
+Docker Desktop을 실행한 상태에서 프로젝트 폴더에서 아래 명령을 실행합니다.
+
+```powershell
+docker compose up --build -d
+docker compose ps
+docker compose logs -f motion-studio
+```
+
+- 대시보드: http://127.0.0.1:4102/studio
+- 건축 뷰어: http://127.0.0.1:4102/architecture/viewer
+- 정지: `docker compose down` (프로젝트·미디어·렌더 결과는 유지)
+- `.local-data`, `out`, `input`은 호스트 폴더를 컨테이너에 연결합니다. 입력 원본은 읽기 전용입니다.
+- 영상 렌더용 Chromium·FFmpeg·한글 글꼴은 이미지에 포함합니다. 브라우저 렌더는 컨테이너 내부에서 실행됩니다.
+- 기본 포트 4102가 사용 중이면 PowerShell에서 `$env:MOTION_STUDIO_PORT=4103`을 설정한 뒤 Compose를 실행합니다.
+## 사용 순서
+
+1. `15초 영상 만들기`를 누릅니다.
+2. 사진을 선택하거나 새로 등록합니다. 로고는 사진 목록과 분리합니다.
+3. 로고를 등록·선택하고, 원하면 브랜드명을 입력합니다.
+4. `15초 인트로 자동 생성`을 누르면 저장과 렌더가 이어집니다.
+5. 렌더 작업에서 결과를 재생하거나 다운로드합니다.
+6. 프로젝트 편집기에서 사진 순서·타일·브랜드·음악·길이를 수정할 수 있습니다.
+
+예제 로고는 데모입니다. 실제 브랜드 로고로 교체하세요. 최종 예제 영상에는 임의의 음악을 넣지 않았습니다. 음악 등록·볼륨·트림 시작점·페이드와 AAC 출력은 별도 검증했습니다.
+
+## 현재 구현
+
+- Motion Studio 대시보드, 프로젝트 생성·열기·이름 변경·복제·삭제.
+- 사진·영상·음악 등록, 실제 형식·디코딩·용량 검사, 미리보기.
+- 캡처 이미지의 영역 분할, 영상 시점 탐색·프레임 추출, 출처 연결.
+- 공유 R3F 씬, GSAP 재생·스크럽·반복, 배경·타일·로고·타이틀·음악 설정.
+- 빠른 15초 자동 생성, 버전 있는 템플릿 카탈로그.
+- 설정과 파일 사본에 고정된 Node 렌더 작업, 진행률·취소·재시도·다운로드.
+- 벤치마크 기반 웹사이트 생성기는 핵심 제품 방향이며 현재 미구현. `/showcase`는 GSAP 랜딩 시연, 3D 갤러리·GLB 뷰어는 탐색 시제품.
+- 건축 뷰어의 GLB 2.0 미리보기·프로젝트 모델 라이브러리 등록·재열기 API.
+- SVG·Mermaid 구조도와 디자인 리뷰 자료.
+
+랭킹 쇼츠·자동 자막·제품 비교는 확장 계약과 카탈로그만 준비되어 있습니다. 외부 AI, 계정·결제, 클라우드 큐는 연결하지 않았습니다. 웹 랜딩과 3D 갤러리는 범용 편집기가 아닌 첫 프리뷰입니다.
+
+## 자료·출력
+
+- 입력 캡처: `input/images/` 4장.
+- 분할 후보: `out/cropped-photos/` 20개와 출처·크롭·사용 여부 manifest.
+- 첫 인트로: 20개 후보 중 18개 사용. 나머지 2개는 잘린 구도로 기본 선택에서 제외.
+- 새 15초 예제: `out/motion-studio-intro-15s.mp4`.
+- 기존 10초 결과: `out/photo-wall-intro.mp4` 보존.
+- 원본 샘플 영상: `out/intro.mp4` 보존.
+- 실제 데이터: `.local-data/` — 프로젝트 JSON, 원본·파생 미디어, 렌더 파일 사본·작업 기록.
+- 검증 증거: `out/qa/` — 메타데이터, 프레임, 브라우저 캡처, 결과 JSON.
+
+`out/`과 `.local-data/`는 Git에서 제외합니다. 위 예제 영상·QA 결과·사용자 프로젝트는 로컬 산출물이므로 새로 clone한 저장소에 포함되지 않습니다. 저장소에는 소스·기획 문서·디자인·샘플 입력과 `public/` 에셋을 포함합니다.
+
+캡처에서 자른 이미지이므로 확대 화질에는 한계가 있습니다. 원본 이미지를 등록하면 같은 템플릿으로 교체 제작할 수 있습니다. 대량 파일을 localStorage에 넣지 않습니다.
+
+## 검증
+
+```powershell
+npm run typecheck
+npm test
+npm run build
+```
+
+브라우저·API·렌더 검증 스크립트는 `scripts/verify-*.cjs`에 있습니다. 이 스크립트 일부는 QA 에셋·프로젝트·작업을 생성하므로 일반 단위 테스트와 구분합니다. `npm test`는 데이터 생성 없이 씬·스키마·15초 템플릿 계약을 검사합니다. ESLint는 아직 구성되지 않았습니다.
+
+## 기획·설계
+
+- [플랫폼 기획](PLATFORM_PLAN.md)
+- [구조도·모듈 경계](ARCHITECTURE.md)
+- [디자인 명세](DESIGN.md)
+- [디자인 리뷰](design/dashboard.html)
+- [경쟁 서비스 벤치마킹](BENCHMARK.md)
+- [요구사항·변경 기록](PRD.md)
+- [구현·검증 상태](IMPLEMENTATION_STATUS.md)
+
+## AI 건축 확장 기획
+
+[건축 제품 기획](ARCHITECTURAL_STUDIO_PLAN.md)과 상세 명세 9개를 제공합니다. 전체 개발주기·플랫폼 구조와 건축 전용 트랙은 `/architecture#cad-lifecycle`, `/architecture#cad-system`에서 볼 수 있습니다. GLB 미리보기·모델 라이브러리는 MVP로 구현했으며, CAD 자동 모델링과 외부 제작 도구·Unity·Unreal 연결은 기획 단계입니다.
+
+| 상세 명세 | 내용 |
+| --- | --- |
+| [개발주기](DEVELOPMENT_LIFECYCLE.md) | 단계별 산출물과 검증 |
+| [CAD 모델링](CAD_MODELING_SPEC.md) | 모델 작성 기준 |
+| [파라메트릭 명세](PARAMETRIC_SPEC.md) | 치수·단위·파라미터 |
+| [에셋 파이프라인](ASSET_PIPELINE.md) | 원본·변환·파생 자산 |
+| [씬 그래프](SCENE_GRAPH.md) | 객체·층·메타데이터 구조 |
+| [인터랙션](INTERACTION_SPEC.md) | 뷰어 조작과 상태 |
+| [렌더링 전략](RENDERING_STRATEGY.md) | 엔진별 출력 방향 |
+| [성능 예산](PERFORMANCE_BUDGET.md) | 자산·실행 성능 기준 |
+| [CAD 검증](CAD_VALIDATION.md) | 치수·형상·출력 검증 |
+
+도구 연결 계획은 [MCP 통합](MCP_INTEGRATION.md)을 참고하세요.
+

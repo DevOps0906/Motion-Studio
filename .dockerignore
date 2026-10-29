@@ -1,0 +1,12 @@
+﻿node_modules
+.next
+.local-data
+out
+.git
+.gitignore
+*.tsbuildinfo
+Dockerfile*
+docker-compose*.yml
+README.md
+
+input
