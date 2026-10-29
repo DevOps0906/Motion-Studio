@@ -55,6 +55,8 @@ flowchart TB
 
 ## 계약과 확장
 
+웹 페이지의 추가 섹션은 `sections`의 순서·enabled와 소개/문의 텍스트·URL로 저장한다. 이전 데이터에 필드가 없으면 서비스 섹션만 표시하도록 읽기 시 정규화한다. `lib/website-styles.ts`를 React 미리보기와 `lib/website-export.ts`의 정적 HTML 출력에서 공유한다. `GET /api/websites/[id]/export`는 저장된 브리프를 검증하고 대표 이미지 바이트를 data URL로 포함한다. 내보낸 파일은 로컬 API·외부 CSS·자바스크립트에 의존하지 않으며 사용자가 지정한 문의 링크만 외부로 이동한다.
+
 SVG → PNG 변환은 Rust **resvg** 공통 계약으로 확장한다. 웹은 Node 서버 어댑터, 향후 데스크톱은 런타임에 맞는 Rust/Node 어댑터를 계획한다. 브라우저 오프라인 요구 시 WASM을 검토한다. 기존 사진 처리·3D 렌더·영상 인코딩과 책임을 분리하며 현재 런타임 연결은 미구현이다. 상세 구조도·계약: [SVG 래스터화 기획](RASTERIZATION_SPEC.md).
 
 현재 Project의 선택 필드 contentType/templateId/templateVersion은 기존 schemaVersion 1 프로젝트와 호환된다. 빠른 제작은 사진·로고 입력을 정규화된 Project로 바꾼 뒤 기존 렌더 파이프라인을 재사용한다. 향후 모듈은 입력 검증과 compositionId를 추가하며 미디어 저장·스냅샷·작업 상태 UI를 복제하지 않는다.

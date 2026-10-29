@@ -9,7 +9,9 @@
     "video:studio": "remotion studio remotion/index.ts",
     "video:render": "remotion render remotion/index.ts PhotoWallIntro out/intro.mp4",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/test-core.cjs && node scripts/test-websites.cjs"
+    "test": "node scripts/test-core.cjs && node scripts/test-websites.cjs && node scripts/test-sample-media.cjs",
+    "samples:refresh": "node scripts/refresh-sample-media.cjs",
+    "samples:migrate": "node scripts/migrate-sample-media.cjs"
   },
   "dependencies": {
     "next": "^16.0.0",

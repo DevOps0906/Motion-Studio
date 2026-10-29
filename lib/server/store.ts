@@ -8,6 +8,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {DEFAULT_PROJECT,validateProject,type MediaAsset,type Project,type RenderJob} from '../model';
 import type {WebsiteProject} from '../website';
+import sampleManifest from '../../public/photos/manifest.json';
 export const DATA=path.join(process.cwd(),'.local-data');
 export const validId=(id:string)=>/^[a-zA-Z0-9-]{1,80}$/.test(id);
 export async function writeJson(file:string,value:unknown){await fs.mkdir(path.dirname(file),{recursive:true});const temp=file+'.'+randomUUID()+'.tmp';await fs.writeFile(temp,JSON.stringify(value,null,2));for(let attempt=0;;attempt++){try{await fs.rename(temp,file);break;}catch(error){if(attempt>=7)throw error;await new Promise(resolve=>setTimeout(resolve,30*(attempt+1)));}}}
@@ -16,10 +17,10 @@ export async function listJson<T>(dir:string):Promise<T[]>{await fs.mkdir(dir,{r
 export function fileFor(kind:'projects'|'media'|'renders',id:string){if(!validId(id))throw new Error('잘못된 ID입니다.');return path.join(DATA,kind,id+'.json');}
 export async function listMedia():Promise<MediaAsset[]>{
  const added=await listJson<MediaAsset>(path.join(DATA,'media'));const source:MediaAsset[]=[];
- for(let n=2;n<=5;n++){const name=`20261029_152230_${n}.png`;try{const stat=await fs.stat(path.join(process.cwd(),'input','images',name));source.push({id:`source-${n}`,name,type:'image',role:'source-capture',mimeType:'image/png',sizeBytes:stat.size,url:`/api/media/source-${n}`,createdAt:stat.birthtime.toISOString()});}catch{}}
+ for(const sample of sampleManifest.sources){try{const stat=await fs.stat(path.join(process.cwd(),'input','images',sample.file));source.push({id:sample.id,name:sample.file,type:'image',role:'source-capture',mimeType:'image/png',sizeBytes:stat.size,width:sample.width,height:sample.height,url:`/api/media/${sample.id}`,createdAt:stat.birthtime.toISOString()});}catch{}}
  return [...added,...source].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
 }
-export async function resolveMedia(id:string){if(!validId(id))throw new Error('잘못된 미디어 ID입니다.');if(/^source-[2-5]$/.test(id)){const n=id.split('-')[1];return {file:path.join(process.cwd(),'input','images',`20261029_152230_${n}.png`),mimeType:'image/png'};}const m=await readJson<MediaAsset>(fileFor('media',id));return {file:path.join(DATA,'files',id),mimeType:m.mimeType};}
+export async function resolveMedia(id:string){if(!validId(id))throw new Error('잘못된 미디어 ID입니다.');if(id.startsWith('source-')){const source=sampleManifest.sources.find(sample=>sample.id===id);if(!source)throw new Error('원본 이미지를 찾을 수 없습니다.');return {file:path.join(process.cwd(),'input','images',source.file),mimeType:'image/png'};}const m=await readJson<MediaAsset>(fileFor('media',id));return {file:path.join(DATA,'files',id),mimeType:m.mimeType};}
 export async function addMedia(bytes:Buffer,name:string,sourceAssetId?:string,crop?:MediaAsset['crop']):Promise<MediaAsset>{
  let mimeType='',type:MediaAsset['type']='image',width:number|undefined,height:number|undefined;
  const image=bytes.subarray(0,3).equals(Buffer.from([255,216,255]))||bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))||(bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP');

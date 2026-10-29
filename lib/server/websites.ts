@@ -10,10 +10,11 @@ export function websiteFile(id: string) {
   return path.join(directory, `${id}.json`);
 }
 export async function getWebsite(id: string) {
-  return readJson<WebsiteProject>(websiteFile(id));
+  const project = await readJson<WebsiteProject>(websiteFile(id));
+  return {...project, ...validateWebsiteBrief(project)};
 }
 export async function listWebsites() {
-  return (await listJson<WebsiteProject>(directory)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return (await listJson<WebsiteProject>(directory)).map(project => ({...project, ...validateWebsiteBrief(project)})).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 export async function saveWebsite(input: unknown, id?: string) {
   const brief = validateWebsiteBrief(input);

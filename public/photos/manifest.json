@@ -1,0 +1,551 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "source-6454da7e5844ae09",
+      "file": "햇살 가득한 애니메이션 소녀 콜라주.png",
+      "width": 1672,
+      "height": 941,
+      "sizeBytes": 2661273,
+      "sha256": "6454da7e5844ae09c0a2ebe2fe0abf5a41993cdf5cacbaf399fac71d753d5204"
+    },
+    {
+      "id": "source-24385f109c86e11e",
+      "file": "ChatGPT 이미지 2026년 10월 30일 오전 12_23_51.png",
+      "width": 1672,
+      "height": 941,
+      "sizeBytes": 2618615,
+      "sha256": "24385f109c86e11e554c33a5007694268614cb777a091699e1c36ceebcbca16e"
+    },
+    {
+      "id": "source-863667582e5e26c5",
+      "file": "ChatGPT 이미지 2026년 10월 30일 오전 12_24_14.png",
+      "width": 1672,
+      "height": 941,
+      "sizeBytes": 2655675,
+      "sha256": "863667582e5e26c59753394335ec46907ca9958410735fb937640ddb67396465"
+    },
+    {
+      "id": "source-b36e80689188d14c",
+      "file": "ChatGPT 이미지 2026년 10월 30일 오전 12_24_06.png",
+      "width": 1672,
+      "height": 941,
+      "sizeBytes": 2464279,
+      "sha256": "b36e80689188d14c6d744ee711cf28136467706db517687466d2473bc24f0357"
+    },
+    {
+      "id": "source-beb1de5b8fe72a93",
+      "file": "ChatGPT 이미지 2026년 10월 30일 오전 12_24_32.png",
+      "width": 1672,
+      "height": 941,
+      "sizeBytes": 2530534,
+      "sha256": "beb1de5b8fe72a931c95dbb91a3e1aa833810327b001b05d914818e7024cfe40"
+    }
+  ],
+  "photos": [
+    {
+      "file": "01.jpg",
+      "sourceAssetId": "source-6454da7e5844ae09",
+      "crop": {
+        "left": 480,
+        "top": 40,
+        "width": 180,
+        "height": 200
+      },
+      "width": 180,
+      "height": 200,
+      "sizeBytes": 21603,
+      "sha256": "a8235603d46b823d53fab460e002e9a4f9fd090b9090e7e817c2c934fcf08380"
+    },
+    {
+      "file": "02.jpg",
+      "sourceAssetId": "source-6454da7e5844ae09",
+      "crop": {
+        "left": 740,
+        "top": 10,
+        "width": 200,
+        "height": 135
+      },
+      "width": 200,
+      "height": 135,
+      "sizeBytes": 15569,
+      "sha256": "0e4a9d383ec24ab07f9a4f9f71c9f9b014767835635e0db932cc3ab19223d3bd"
+    },
+    {
+      "file": "03.jpg",
+      "sourceAssetId": "source-6454da7e5844ae09",
+      "crop": {
+        "left": 1010,
+        "top": 10,
+        "width": 170,
+        "height": 175
+      },
+      "width": 170,
+      "height": 175,
+      "sizeBytes": 17241,
+      "sha256": "9d995786b153a41f5d8dc0f7c4f440123cd43ef5690f2760c4fbc7f0bc48e391"
+    },
+    {
+      "file": "04.jpg",
+      "sourceAssetId": "source-6454da7e5844ae09",
+      "crop": {
+        "left": 1245,
+        "top": 25,
+        "width": 180,
+        "height": 190
+      },
+      "width": 180,
+      "height": 190,
+      "sizeBytes": 19919,
+      "sha256": "65311aef298b5124a7162d9fde9d35cdc6c1560f8c1ea69b91aa0f974962a4d5"
+    },
+    {
+      "file": "05.jpg",
+      "sourceAssetId": "source-6454da7e5844ae09",
+      "crop": {
+        "left": 570,
+        "top": 300,
+        "width": 335,
+        "height": 340
+      },
+      "width": 335,
+      "height": 340,
+      "sizeBytes": 61754,
+      "sha256": "8f65bf5556a084b5f6b5d30940c4f93525323a3be56070a15ebe5d6f7b7d8bbc"
+    },
+    {
+      "file": "06.jpg",
+      "sourceAssetId": "source-6454da7e5844ae09",
+      "crop": {
+        "left": 1240,
+        "top": 520,
+        "width": 190,
+        "height": 310
+      },
+      "width": 190,
+      "height": 310,
+      "sizeBytes": 28444,
+      "sha256": "bc02b4911fe11df5b80abd97a876bd8ef282ab2630ad949b0bad8d61282f51eb"
+    },
+    {
+      "file": "07.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 15,
+        "top": 5,
+        "width": 160,
+        "height": 150
+      },
+      "width": 160,
+      "height": 150,
+      "sizeBytes": 16192,
+      "sha256": "5921d7537e1c55b26b8834673f465461a9135f534e8cd5e2c4236af069d218b0"
+    },
+    {
+      "file": "08.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 40,
+        "top": 220,
+        "width": 140,
+        "height": 160
+      },
+      "width": 140,
+      "height": 160,
+      "sizeBytes": 14700,
+      "sha256": "cbfad16cf224da8969be22832e361dd2449d2b61008bb6a67372d0f50349ab27"
+    },
+    {
+      "file": "09.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 225,
+        "top": 175,
+        "width": 200,
+        "height": 180
+      },
+      "width": 200,
+      "height": 180,
+      "sizeBytes": 23452,
+      "sha256": "32fa9e1dbbb29ffde96f387b6b0dbe3180b49dc29541b4c99fa8c5a3b5ca4dc5"
+    },
+    {
+      "file": "10.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 225,
+        "top": 405,
+        "width": 200,
+        "height": 275
+      },
+      "width": 200,
+      "height": 275,
+      "sizeBytes": 28685,
+      "sha256": "8aa899e4e03d0b2ec1b340bea6df2a1eaf8a7fbecfb9906b758e92765f77e0d6"
+    },
+    {
+      "file": "11.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 475,
+        "top": 90,
+        "width": 200,
+        "height": 370
+      },
+      "width": 200,
+      "height": 370,
+      "sizeBytes": 41008,
+      "sha256": "0b6b4cec0d5c55b289a641ce4f5d8dd2e87175e865133eed4b1f376b275ad394"
+    },
+    {
+      "file": "12.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 740,
+        "top": 295,
+        "width": 190,
+        "height": 365
+      },
+      "width": 190,
+      "height": 365,
+      "sizeBytes": 31490,
+      "sha256": "56a97dc58553a1076e2c959638eccb3bd31f569fb4b221ae8b4b57d7a8610a5a"
+    },
+    {
+      "file": "13.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 740,
+        "top": 740,
+        "width": 190,
+        "height": 170
+      },
+      "width": 190,
+      "height": 170,
+      "sizeBytes": 19267,
+      "sha256": "a6e067e06c6eba2525e479d274c82012f7bd4027763315958b140db58305bffb"
+    },
+    {
+      "file": "14.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 990,
+        "top": 0,
+        "width": 195,
+        "height": 200
+      },
+      "width": 195,
+      "height": 200,
+      "sizeBytes": 21045,
+      "sha256": "e00256174de0d1cdaf598bc82e9a0a59a2385c7ae055642b3aee73b62a20f5d1"
+    },
+    {
+      "file": "15.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 995,
+        "top": 530,
+        "width": 190,
+        "height": 185
+      },
+      "width": 190,
+      "height": 185,
+      "sizeBytes": 23030,
+      "sha256": "483a21a3bdae48dec97e5e34d992cf12172b3bd7d0a6acd3a8564eed8d921588"
+    },
+    {
+      "file": "16.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 995,
+        "top": 770,
+        "width": 190,
+        "height": 150
+      },
+      "width": 190,
+      "height": 150,
+      "sizeBytes": 18391,
+      "sha256": "e837829cf647f2ad41543eff6660d70fba88bbd3cfb58533a9f0d6aafdf8fbd5"
+    },
+    {
+      "file": "17.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 1250,
+        "top": 285,
+        "width": 195,
+        "height": 180
+      },
+      "width": 195,
+      "height": 180,
+      "sizeBytes": 22557,
+      "sha256": "9526d44ae88707cac48e9f8074a2fa087e178dc3d230a079e05ced14b7baaef5"
+    },
+    {
+      "file": "18.jpg",
+      "sourceAssetId": "source-24385f109c86e11e",
+      "crop": {
+        "left": 1250,
+        "top": 540,
+        "width": 180,
+        "height": 340
+      },
+      "width": 180,
+      "height": 340,
+      "sizeBytes": 37041,
+      "sha256": "73fd10628e89336d6af5c829d2cd3185143f379d43fe462909dcf768dc47b795"
+    },
+    {
+      "file": "19.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 0,
+        "top": 0,
+        "width": 195,
+        "height": 195
+      },
+      "width": 195,
+      "height": 195,
+      "sizeBytes": 23903,
+      "sha256": "67891111474e1f7f4b147849c26377b8b3cd0f5337c36eed2d28f0638f59b634"
+    },
+    {
+      "file": "20.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 250,
+        "top": 90,
+        "width": 280,
+        "height": 220
+      },
+      "width": 280,
+      "height": 220,
+      "sizeBytes": 34676,
+      "sha256": "b4b472f08fc79c38c2b76141ac02800c3a13e29321aca1a04d998b53a12a0774"
+    },
+    {
+      "file": "21.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 240,
+        "top": 365,
+        "width": 290,
+        "height": 105
+      },
+      "width": 290,
+      "height": 105,
+      "sizeBytes": 20907,
+      "sha256": "26823eaab769804dc87b6574ffbfce3ef2b2804fc86c1c8478f463b56892e9e5"
+    },
+    {
+      "file": "22.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 240,
+        "top": 530,
+        "width": 280,
+        "height": 330
+      },
+      "width": 280,
+      "height": 330,
+      "sizeBytes": 53246,
+      "sha256": "8185b17d298f9cfa89fd813685bf551e32a0a4cfb669a6a6d918caa765c1a539"
+    },
+    {
+      "file": "23.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 590,
+        "top": 0,
+        "width": 280,
+        "height": 270
+      },
+      "width": 280,
+      "height": 270,
+      "sizeBytes": 42375,
+      "sha256": "af9831c9aba05dcbda3f817eff19781824834ae6b49a77151bb1f5a74031d784"
+    },
+    {
+      "file": "24.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 605,
+        "top": 465,
+        "width": 275,
+        "height": 375
+      },
+      "width": 275,
+      "height": 375,
+      "sizeBytes": 65590,
+      "sha256": "b7df1f776def1a3e1efb8a49f0b9cdf550a1b9ff173feb71a71ccc8c24db0e2f"
+    },
+    {
+      "file": "25.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 930,
+        "top": 200,
+        "width": 300,
+        "height": 330
+      },
+      "width": 300,
+      "height": 330,
+      "sizeBytes": 53935,
+      "sha256": "ebb81ff1f56e27922d5de1a6fa84048eeb51c82b2b17114bb712e5564026406f"
+    },
+    {
+      "file": "26.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 1275,
+        "top": 300,
+        "width": 260,
+        "height": 335
+      },
+      "width": 260,
+      "height": 335,
+      "sizeBytes": 46404,
+      "sha256": "5fe98ceaae376b07802b698423d51252b3b54fe4724ab37b8a00f7f3f32ca866"
+    },
+    {
+      "file": "27.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 1280,
+        "top": 740,
+        "width": 265,
+        "height": 170
+      },
+      "width": 265,
+      "height": 170,
+      "sizeBytes": 26322,
+      "sha256": "c4eaefa484e4eafe6866c891bc06c4d7e6d5d2110b9e636138a6dfc9ca68edc9"
+    },
+    {
+      "file": "28.jpg",
+      "sourceAssetId": "source-863667582e5e26c5",
+      "crop": {
+        "left": 0,
+        "top": 5,
+        "width": 185,
+        "height": 210
+      },
+      "width": 185,
+      "height": 210,
+      "sizeBytes": 23774,
+      "sha256": "73f11aa340e710f5cd30f8ab83d3002453e3dd3cbb74c10b4c4c70c940d8a125"
+    },
+    {
+      "file": "29.jpg",
+      "sourceAssetId": "source-b36e80689188d14c",
+      "crop": {
+        "left": 90,
+        "top": 35,
+        "width": 350,
+        "height": 185
+      },
+      "width": 350,
+      "height": 185,
+      "sizeBytes": 34297,
+      "sha256": "8040e1341573b5d393cf7a78597819b91ebfd23ba804520d8fc12b1aa0cf3708"
+    },
+    {
+      "file": "30.jpg",
+      "sourceAssetId": "source-b36e80689188d14c",
+      "crop": {
+        "left": 750,
+        "top": 0,
+        "width": 260,
+        "height": 175
+      },
+      "width": 260,
+      "height": 175,
+      "sizeBytes": 24681,
+      "sha256": "5064b6bef155289edc284f8b1270207aca66c4a8c87ec860cf27a2e4a80948a4"
+    },
+    {
+      "file": "31.jpg",
+      "sourceAssetId": "source-b36e80689188d14c",
+      "crop": {
+        "left": 650,
+        "top": 370,
+        "width": 480,
+        "height": 490
+      },
+      "width": 480,
+      "height": 490,
+      "sizeBytes": 99846,
+      "sha256": "ccbe3c7e219c9a6752a8181684f89a29ceb33d925b47368f13ea0422cd93e289"
+    },
+    {
+      "file": "32.jpg",
+      "sourceAssetId": "source-b36e80689188d14c",
+      "crop": {
+        "left": 1270,
+        "top": 470,
+        "width": 330,
+        "height": 410
+      },
+      "width": 330,
+      "height": 410,
+      "sizeBytes": 71577,
+      "sha256": "44c41096f82b703feaacb2a1e3dbe5c70f3fbc5d0d2d7b4468c13ec6d7a261bb"
+    },
+    {
+      "file": "33.jpg",
+      "sourceAssetId": "source-beb1de5b8fe72a93",
+      "crop": {
+        "left": 155,
+        "top": 135,
+        "width": 290,
+        "height": 180
+      },
+      "width": 290,
+      "height": 180,
+      "sizeBytes": 26563,
+      "sha256": "d0fe7a95ce7801350dca5c80c765d7cd6055aa7951867d18f51aca07f4068f3f"
+    },
+    {
+      "file": "34.jpg",
+      "sourceAssetId": "source-beb1de5b8fe72a93",
+      "crop": {
+        "left": 640,
+        "top": 30,
+        "width": 220,
+        "height": 145
+      },
+      "width": 220,
+      "height": 145,
+      "sizeBytes": 19213,
+      "sha256": "eccf5eee1f7fd5a0fc943055f74d5f39a5236054d90e3e702bbd1e7e8ca97a86"
+    },
+    {
+      "file": "35.jpg",
+      "sourceAssetId": "source-beb1de5b8fe72a93",
+      "crop": {
+        "left": 760,
+        "top": 295,
+        "width": 300,
+        "height": 340
+      },
+      "width": 300,
+      "height": 340,
+      "sizeBytes": 51313,
+      "sha256": "36df929efcf38a50ccf23b19a0d0ae3de8a55dfcef88c8de7539b0951bb1be46"
+    },
+    {
+      "file": "36.jpg",
+      "sourceAssetId": "source-beb1de5b8fe72a93",
+      "crop": {
+        "left": 1330,
+        "top": 600,
+        "width": 240,
+        "height": 240
+      },
+      "width": 240,
+      "height": 240,
+      "sizeBytes": 35934,
+      "sha256": "2a61bc06cd1420ec37e29cf4da8282faaccab0689436bd24ad7e0eb70319adea"
+    }
+  ]
+}
