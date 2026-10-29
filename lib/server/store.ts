@@ -1,4 +1,5 @@
-﻿import 'server-only';
+import type {BlogSkinProject} from '../blog-skin';
+import 'server-only';
 import {promises as fs,createReadStream} from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -36,7 +37,7 @@ export async function addMedia(bytes:Buffer,name:string,sourceAssetId?:string,cr
 }
 export async function validateReferences(p:Project){const media=await listMedia();for(const id of p.photos){if(!media.some(m=>m.id===id&&m.type==='image'&&m.role!=='source-capture'))throw new Error('사진월에 사용할 사진을 다시 선택해 주세요.');}if(p.brand.logoAssetId&&!media.some(m=>m.id===p.brand.logoAssetId&&m.type==='image'))throw new Error('로고 파일을 찾을 수 없습니다.');if(p.audio.assetId&&!media.some(m=>m.id===p.audio.assetId&&m.type==='audio'))throw new Error('오디오 파일을 찾을 수 없습니다.');}
 export async function saveProject(input:unknown,id?:string){const p=validateProject(input);await validateReferences(p);const now=new Date().toISOString();let existing:Project|undefined;if(id)existing=await readJson<Project>(fileFor('projects',id));const saved={...p,id:id??randomUUID(),createdAt:existing?.createdAt??now,updatedAt:now};await writeJson(fileFor('projects',saved.id),saved);return saved;}
-export async function createProject(title:string,photos:string[]=[],template:Project['template']='mosaic'){return saveProject({...DEFAULT_PROJECT,title,photos,template});}
+export async function createProject(title:string,photos:string[]=[],template:Project['template']='mosaic',resolution:Project['resolution']=DEFAULT_PROJECT.resolution){return saveProject({...DEFAULT_PROJECT,title,photos,template,resolution});}
 export async function streamFile(file:string,mimeType:string,request:Request,downloadName?:string){
  const stat=await fs.stat(file);let start=0,end=stat.size-1;let partial=false;const range=request.headers.get('range');
  if(range){const match=/^bytes=(\d*)-(\d*)$/.exec(range);if(!match||(!match[1]&&!match[2]))return new Response(null,{status:416,headers:{'Content-Range':`bytes */${stat.size}`}});if(!match[1])start=Math.max(0,stat.size-Number(match[2]));else start=Number(match[1]);if(match[1]&&match[2])end=Math.min(end,Number(match[2]));if(start>end||start>=stat.size)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${stat.size}`}});partial=true;}
@@ -55,6 +56,7 @@ export async function deleteMedia(id:string){
  if(projects.some(p=>p.photos.includes(id)||p.brand.logoAssetId===id||p.audio.assetId===id))throw new Error('프로젝트에서 사용 중입니다. 먼저 프로젝트에서 제외해 주세요.');
  const websites=await listJson<WebsiteProject>(path.join(DATA,'websites'));
  if(websites.some(p=>p.heroImageId===id))throw new Error('웹 프로젝트에서 사용 중입니다. 먼저 대표 이미지를 변경해 주세요.');
+ const blogs=await listJson<BlogSkinProject>(path.join(DATA,'blog-skins'));if(blogs.some(p=>p.draft.imageId===id||p.draft.logoImageId===id))throw new Error('블로그 스킨에서 사용 중입니다. 먼저 이미지를 변경해 주세요.');
  const all=await listMedia();if(all.some(m=>m.sourceAssetId===id))throw new Error('이 파일에서 만든 사진이 있습니다. 파생 사진의 원본 연결을 위해 보존합니다.');
  await fs.unlink(fileFor('media',asset.id));await fs.unlink(path.join(DATA,'files',asset.id));
 }

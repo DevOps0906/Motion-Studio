@@ -1,0 +1,50 @@
+const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const {unzipSync,strFromU8}=require('fflate'),sharp=require('sharp'),{openBrowser}=require('@remotion/renderer');
+const base=process.env.WEBSITE_QA_URL||'http://127.0.0.1:4101',ids=[];let assetId,browser;
+const payload=value=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
+async function json(url,options){const response=await fetch(base+url,options),body=await response.json();assert.ok(response.ok,JSON.stringify(body));return body;}
+async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,250));}throw new Error('Blog skin UI timeout');}
+(async()=>{try{
+ const upload=new FormData();upload.set('file',new Blob([await fs.readFile('public/photos/01.jpg')],{type:'image/jpeg'}),'blog-qa.jpg');assetId=(await json('/api/media',{method:'POST',body:upload})).id;
+ const draft={brand:'BLOG QA '+randomUUID(),headline:'브랜드 정보를 블로그 스킨으로',description:'실제 PNG와 설치 자료를 생성합니다.',accent:'#c4b5fd',style:'corporate',imageId:assetId,logoImageId:assetId,widgetImageUrl:'https://example.com/transparent.png',widgetTop:580,widgetOffsetX:12,menus:[{label:'소개',url:'https://blog.naver.com/test?menu=1&kind=post'},{label:'서비스',url:'https://example.com/services'},{label:'문의',url:'https://example.com/contact'}]};
+ const saved=await json('/api/blog-skins',payload({draft}));ids.push(saved.id);
+ assert.equal((await fetch(base+'/api/media/'+assetId,{method:'DELETE'})).status,400);
+ assert.equal((await fetch(base+'/api/blog-skins/export',payload({...draft,menus:[{label:'test',url:'javascript:alert(1)'}]}))).status,400);
+ const preview=await fetch(base+'/api/blog-skins/preview',payload(draft));assert.equal(preview.status,200);const image=Buffer.from(await preview.arrayBuffer());assert.equal((await sharp(image).metadata()).width,1920);
+ const response=await fetch(base+'/api/blog-skins/export',payload(draft));assert.equal(response.status,200);const archive=unzipSync(new Uint8Array(await response.arrayBuffer()));
+ assert.equal((await sharp(archive['skin-background-1920x900.png']).metadata()).height,900);
+ assert.equal(JSON.parse(strFromU8(archive['coordinates.json'])).coordinates.length,3);
+ assert.ok(strFromU8(archive['widgets/menu-1.html']).includes('https://example.com/transparent.png'));
+ assert.ok(strFromU8(archive['widgets/menu-1.html']).includes('&amp;kind=post'));
+ const rgba=await sharp(archive['transparent-170x100.png']).ensureAlpha().raw().toBuffer();assert.ok(rgba.every((value,index)=>index%4!==3||value===0));
+ await fs.mkdir('out/qa',{recursive:true});await fs.writeFile('out/qa/blog-skin-with-images.png',archive['skin-background-1920x900.png']);
+ browser=await openBrowser('chrome',{browserExecutable:process.env.REMOTION_BROWSER_EXECUTABLE||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',chromiumOptions:{headless:true}});
+ const logs=[],page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:log=>logs.push(log),onLog:()=>{}});
+ await page.setViewport({width:1440,height:1050,deviceScaleFactor:1,isMobile:false,hasTouch:false});await page.goto({url:base+'/blog-skins',timeout:60000});await wait(()=>page.evaluate(()=>!document.querySelector('.blog-skin-form fieldset').disabled));
+ assert.equal(await page.evaluate(()=>document.querySelectorAll('.app-gnb').length),1);assert.ok(await page.evaluate(()=>Boolean(document.querySelector('.maker-reference-bar'))));
+ const brand='IMPORTED BLOG '+randomUUID();
+ await page.evaluate(name=>{const file=new File([JSON.stringify({brand:name,description:'브랜드 정보에서 만든 블로그 소개',headline:'새로운 홈페이지형 블로그',services:['웹','영상'],contactUrl:'https://example.com/contact'})],'brand.json',{type:'application/json'}),transfer=new DataTransfer();transfer.items.add(file);const input=document.querySelector('.blog-metadata-input');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));},brand);
+ await wait(()=>page.evaluate(name=>document.querySelector('input[name=blogBrand]').value===name,brand));
+ await page.evaluate(()=>Array.from(document.querySelectorAll('.blog-skin-actions button')).find(button=>button.textContent.includes('프로젝트 저장')).click());
+ let uiId;await wait(async()=>{const project=(await json('/api/blog-skins')).find(item=>item.draft.brand===brand);if(project){uiId=project.id;if(!ids.includes(uiId))ids.push(uiId);}return Boolean(project);});
+ await wait(()=>page.evaluate(()=>!document.querySelector('.blog-skin-form fieldset').disabled));
+ await page.evaluate(()=>Array.from(document.querySelectorAll('.blog-skin-actions button')).find(button=>button.textContent.includes('미리보기')).click());
+ await wait(()=>page.evaluate(()=>Boolean(document.querySelector('.blog-skin-preview>img')?.complete&&document.querySelector('.blog-skin-preview>img')?.naturalWidth)));
+ assert.equal(await page.evaluate(()=>document.querySelector('.blog-skin-preview>img').naturalWidth),1920);
+ assert.equal(await page.evaluate(()=>document.querySelectorAll('.blog-click-area').length),5);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ let shot=await page._client().send('Page.captureScreenshot',{format:'png'});await fs.writeFile('out/qa/blog-builder-desktop.png',Buffer.from(shot.value.data,'base64'));
+ const downloadDir=path.resolve('out/qa/blog-download-'+randomUUID());await fs.mkdir(downloadDir,{recursive:true});await page._client().send('Page.setDownloadBehavior',{behavior:'allow',downloadPath:downloadDir});
+ await page.evaluate(()=>Array.from(document.querySelectorAll('.blog-skin-actions button')).find(button=>button.textContent.includes('ZIP')).click());
+ await wait(async()=>{try{return(await fs.stat(path.join(downloadDir,'naver-blog-skin.zip'))).size>0;}catch{return false;}});
+ const downloaded=unzipSync(new Uint8Array(await fs.readFile(path.join(downloadDir,'naver-blog-skin.zip'))));assert.ok(downloaded['skin-background-1920x900.png']);assert.ok(strFromU8(downloaded['widgets/menu-1.html']).includes('__TRANSPARENT_IMAGE_URL__'));
+ await wait(()=>page.evaluate(()=>!document.querySelector('.blog-skin-form fieldset').disabled));
+ await page.evaluate(()=>document.querySelector('.blog-skin-form .section-head button').click());
+ await page.evaluate(id=>{const select=document.querySelector('select[aria-label="저장한 스킨"]');select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));},uiId);
+ await wait(()=>page.evaluate(name=>document.querySelector('input[name=blogBrand]').value===name,brand));
+ await page.setViewport({width:390,height:844,deviceScaleFactor:1,isMobile:true,hasTouch:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ shot=await page._client().send('Page.captureScreenshot',{format:'png'});await fs.writeFile('out/qa/blog-builder-mobile.png',Buffer.from(shot.value.data,'base64'));
+ await fs.writeFile('out/qa/blog-skin-result.json',JSON.stringify({apiSave:true,uiImport:true,uiSave:true,reopen:true,resvgPreview:true,embeddedImages:true,transparentAlpha:true,widgets:true,uiZipDownload:true,imageProtection:true,mobileOverflow:false,naverAccountInstallation:false,logs},null,2));
+ console.log('PASS: blog metadata import/save/reopen, resvg preview with images, transparent widgets, coordinates, actual ZIP download, image protection and desktop/mobile layout');
+ }finally{if(browser)await browser.close({silent:true});for(const id of ids){assert.match(id,/^[a-zA-Z0-9-]+$/);await fs.unlink(path.join('.local-data','blog-skins',id+'.json'));}if(assetId)await json('/api/media/'+assetId,{method:'DELETE'});}
+})().catch(error=>{console.error(error);process.exitCode=1;});

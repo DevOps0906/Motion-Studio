@@ -51,10 +51,10 @@ async function wait(check) {
     await page.goto({url: base + '/websites', timeout: 60000});
     await wait(() => page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).some(b => b.textContent.includes(name)), title));
     await page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).find(b => b.textContent.includes(name)).click(), title);
-    await wait(() => page.evaluate(() => document.querySelector('.website-brief input').value.startsWith('Website QA')));
+    await wait(() => page.evaluate(() => document.querySelector('.website-brief input[name=title]').value.startsWith('Website QA')));
     // Exercise React's controlled input, preview update and save button.
     await page.evaluate(() => {
-      const input = document.querySelectorAll('.website-brief input')[2];
+      const input = document.querySelector('.website-brief input[name=headline]');
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Updated from the editor');
       input.dispatchEvent(new Event('input', {bubbles: true}));
     });
@@ -84,7 +84,7 @@ async function wait(check) {
     // Exercise new-project creation through the actual form as well.
     await page.evaluate(() => document.querySelector('.website-project-list .section-head button').click());
     await page.evaluate(name => {
-      const fields = document.querySelectorAll('.website-brief input');
+      const fields = ['title','brand','headline'].map(name=>document.querySelector('.website-brief input[name='+name+']'));
       const set = (element, value, prototype) => {
         Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, value);
         element.dispatchEvent(new Event('input', {bubbles: true}));

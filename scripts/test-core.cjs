@@ -1,5 +1,5 @@
-﻿const fs=require('node:fs');const ts=require('typescript');const vm=require('node:vm');const assert=require('node:assert/strict');
-function load(file){const source=fs.readFileSync(file,'utf8');const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;const module={exports:{}};vm.runInNewContext(code,{exports:module.exports,module,require:(id)=>id==='./model'?load('lib/model.ts'):require(id),console});return module.exports;}
+const fs=require('node:fs');const ts=require('typescript');const vm=require('node:vm');const assert=require('node:assert/strict');
+function load(file){const source=fs.readFileSync(file,'utf8');const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;const module={exports:{}};vm.runInNewContext(code,{exports:module.exports,module,require:(id)=>id.startsWith('./')?load(require('node:path').join(require('node:path').dirname(file),id+'.ts')):require(id),console});return module.exports;}
 const motion=load('lib/motion.ts'),model=load('lib/model.ts');let tests=0;
 for(const frame of [0,90,180,299]){const a=motion.sceneState(frame/30,10),b=motion.sceneState(frame/30,10);assert.deepEqual(a,b);assert.ok(Object.values(a.camera).every(Number.isFinite));tests++;}
 for(const t of [0,.34,.7,1])for(const template of ['mosaic','diagonal','reveal']){const pose=motion.cameraPose(t,template);assert.ok(pose.z>0&&Object.values(pose).every(Number.isFinite));tests++;}

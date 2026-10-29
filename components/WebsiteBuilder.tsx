@@ -1,9 +1,12 @@
 'use client';
 
-import {useEffect, useState, type FormEvent} from 'react';
-import {EMPTY_WEBSITE, WEBSITE_SECTION_LABELS, validateWebsiteBrief, type WebsiteBrief, type WebsiteProject} from '../lib/website';
+import {useEffect, useState, useRef, type FormEvent} from 'react';
+import {EMPTY_WEBSITE, WEBSITE_SECTION_LABELS, validateWebsiteBrief, safeWebsiteLink, type WebsiteBrief, type WebsiteProject} from '../lib/website';
 import type {MediaAsset} from '../lib/model';
 import WebsitePreview from './WebsitePreview';
+import WebsiteReferencePicker from './WebsiteReferencePicker';
+import {referenceDesign,type ReferenceCard} from '../lib/website-references';
+import {importWebsiteMetadata} from '../lib/website-metadata';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {cache: 'no-store', ...options});
@@ -23,6 +26,16 @@ export default function WebsiteBuilder() {
   const [notice, setNotice] = useState(''), [mediaError, setMediaError] = useState('');
   const [previewWidth, setPreviewWidth] = useState<'desktop' | 'mobile'>('desktop');
   const busy = loading || saving || exporting;
+  const metadataInput=useRef<HTMLInputElement>(null);
+  function chooseReference(card:Pick<ReferenceCard,'title'|'url'|'tags'>){
+    const designPreset=referenceDesign(card.tags,card.title);
+    setBrief(current=>({...current,referenceUrl:card.url,referenceTitle:card.title,designPreset,theme:designPreset==='editorial'?'light':current.theme}));
+    setDirty(true);setNotice(`레퍼런스 '${card.title}'의 분류를 참고해 ${designPreset} 디자인을 적용했습니다. 가져온 브랜드 내용은 유지됩니다.`);
+  }
+  useEffect(()=>{const choose=(event:Event)=>{const item=(event as CustomEvent).detail;if(item&&typeof item.title==='string'&&safeWebsiteLink(item.url)&&Array.isArray(item.tags))chooseReference(item);};window.addEventListener('motion-reference-selected',choose);return()=>window.removeEventListener('motion-reference-selected',choose);},[]);
+  async function importMetadata(file:File){
+    setError('');try{if(file.size>1024*1024)throw new Error('메타데이터는 1MiB 이하로 선택해 주세요.');const imported=importWebsiteMetadata(await file.text(),brief);setBrief(imported);setDirty(true);setNotice(`${file.name}의 홈페이지 정보를 적용했습니다. 내용을 확인하고 저장해 주세요.`);}catch(cause){setError((cause as Error).message);}finally{if(metadataInput.current)metadataInput.current.value='';}
+  }
 
   async function load() {
     setLoading(true); setError(''); setMediaError('');
@@ -84,14 +97,14 @@ export default function WebsiteBuilder() {
         method: selectedId ? 'PATCH' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(valid),
       });
       setProjects(current => [project, ...current.filter(p => p.id !== project.id)]);
-      setSelectedId(project.id); setBrief(project); setDirty(false); setNotice('저장했습니다. 저장된 미리보기를 새 탭에서 열 수 있습니다.');
+      setSelectedId(project.id); setBrief(project); setDirty(false); setNotice('저장했습니다. 저장된 미리보기를 열 수 있습니다.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '저장하지 못했습니다. 입력 내용은 유지됩니다.'); }
     finally { setSaving(false); }
   }
 
   return <main className="website-builder">
     <header className="website-builder-header"><div><div className="eyebrow">MOTION STUDIO / WEBSITE</div><h1>브랜드의 첫 페이지를 만드세요.</h1><p>브랜드 정보를 입력하고 랜딩 페이지를 저장·미리보기 합니다.</p></div><a className="button" href="/studio">← 대시보드</a></header>
-    <div className="website-scope-note">브랜드 랜딩 MVP · 참고 URL은 기획 자료로 저장됩니다. 사이트 자동 분석·AI 생성·배포는 후속 단계입니다.</div>
+    <div className="website-scope-note">메타데이터로 홈페이지 내용을 채우고 레퍼런스의 분류에 맞춰 디자인을 구성합니다. 원본 사이트의 코드·문구·이미지는 복제하지 않으며 자동 배포는 포함하지 않습니다.</div>
     <div className="website-builder-grid">
       <aside className="website-project-list panel"><div className="section-head"><h2>웹 프로젝트</h2><button disabled={busy} onClick={() => open()}>＋ 새로 만들기</button></div>
         {loading ? <p role="status">목록을 불러오는 중…</p> : projects.length === 0 ? <p>아직 저장한 웹 프로젝트가 없습니다. 오른쪽에서 첫 페이지를 만들어 보세요.</p> :
@@ -101,13 +114,17 @@ export default function WebsiteBuilder() {
       </aside>
       <form className="website-brief panel" onSubmit={save}>
         <div className="section-head"><h2>브랜드 브리프</h2><span className="save-state">{saving ? '저장 중…' : dirty ? '저장하지 않은 변경' : selectedId ? '저장됨' : '새 프로젝트'}</span></div>
+        <div className="metadata-import"><button type="button" disabled={busy} onClick={()=>metadataInput.current?.click()}>홈페이지 정보 JSON 가져오기</button><a href="/templates/website-metadata.sample.json" download>메타데이터 양식 ↓</a><p className="small">브랜드·소개·서비스·문의 정보를 페이지 초안으로 구성합니다.</p><input className="website-metadata-input" ref={metadataInput} hidden type="file" accept=".json,.jsonld,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void importMetadata(file);}}/></div>
+        <WebsiteReferencePicker disabled={busy} onChoose={chooseReference}/>
         <fieldset disabled={busy}>
-          <label>프로젝트 이름<input required maxLength={120} value={brief.title} placeholder="예: 스튜디오 소개 페이지" onChange={e => edit('title', e.target.value)}/></label>
-          <label>브랜드명<input required maxLength={80} value={brief.brand} placeholder="예: MOTION ATELIER" onChange={e => edit('brand', e.target.value)}/></label>
-          <label>핵심 문구<input required maxLength={160} value={brief.headline} placeholder="브랜드가 전할 한 문장" onChange={e => edit('headline', e.target.value)}/></label>
-          <label>브랜드 소개<textarea required maxLength={1200} rows={4} value={brief.description} placeholder="무엇을 만들고 어떤 가치를 제공하나요?" onChange={e => edit('description', e.target.value)}/></label>
+          <label>프로젝트 이름<input name="title" required maxLength={120} value={brief.title} placeholder="예: 스튜디오 소개 페이지" onChange={e => edit('title', e.target.value)}/></label>
+          <label>브랜드명<input name="brand" required maxLength={80} value={brief.brand} placeholder="예: MOTION ATELIER" onChange={e => edit('brand', e.target.value)}/></label>
+          <label>핵심 문구<input name="headline" required maxLength={160} value={brief.headline} placeholder="브랜드가 전할 한 문장" onChange={e => edit('headline', e.target.value)}/></label>
+          <label>브랜드 소개<textarea name="description" required maxLength={1200} rows={4} value={brief.description} placeholder="무엇을 만들고 어떤 가치를 제공하나요?" onChange={e => edit('description', e.target.value)}/></label>
           <label>대상 고객<input maxLength={200} value={brief.audience} placeholder="예: 새로운 공간을 준비하는 브랜드" onChange={e => edit('audience', e.target.value)}/></label>
           <label>참고 사이트 URL · 선택<input type="url" maxLength={2000} value={brief.referenceUrl} placeholder="https://example.com" onChange={e => edit('referenceUrl', e.target.value)}/></label>
+          {brief.referenceTitle&&<p className="small">선택한 레퍼런스: {brief.referenceTitle}</p>}
+          <label>디자인 방향<select aria-label="디자인 방향" value={brief.designPreset} onChange={e=>edit('designPreset',e.target.value as WebsiteBrief['designPreset'])}><option value="studio">프리미엄 스튜디오</option><option value="editorial">에디토리얼 · 건축/브랜드</option><option value="gallery">갤러리 · 포트폴리오</option></select></label>
           <label>서비스 · 한 줄에 하나, 최대 6개<textarea rows={4} value={brief.services.join('\n')} onChange={e => edit('services', e.target.value.split('\n'))}/></label>
           <label>버튼 문구<input required maxLength={40} value={brief.ctaLabel} onChange={e => edit('ctaLabel', e.target.value)}/></label>
           <div className="website-brief-colors"><label>강조색<input type="color" value={brief.accent} onChange={e => edit('accent', e.target.value)}/></label><label>테마<select value={brief.theme} onChange={e => edit('theme', e.target.value as WebsiteBrief['theme'])}><option value="dark">다크</option><option value="light">라이트</option></select></label></div>
@@ -122,7 +139,7 @@ export default function WebsiteBuilder() {
         </fieldset>
         {error && <p role="alert" className="error-text">{error}</p>}
         <p role="status" className="small">{notice}</p>
-        {selectedId && <a className="button" href={`/websites/${selectedId}`} target="_blank" rel="noreferrer">저장된 미리보기 열기 ↗</a>}
+        {selectedId && <a className="button" href={`/websites/${selectedId}`}>저장된 미리보기 열기 ↗</a>}
         <button className="full website-export-button" type="button" disabled={!selectedId || dirty || busy} onClick={() => void download()}>{exporting ? '내보내는 중…' : 'HTML 파일 내보내기 ↓'}</button>
         <p className="small">저장된 내용을 내보냅니다. 변경 후 먼저 저장해 주세요. 문의 링크는 연결만 제공하며 문의 폼 전송 기능은 포함하지 않습니다.</p>
       </form>

@@ -24,6 +24,8 @@ export type WebsiteBrief = {
   contactHeading: string;
   contactText: string;
   contactUrl: string;
+  designPreset: 'studio' | 'editorial' | 'gallery';
+  referenceTitle: string;
 };
 
 export type WebsiteProject = WebsiteBrief & {
@@ -40,6 +42,7 @@ export const EMPTY_WEBSITE: WebsiteBrief = {
   accent: '#c4b5fd', theme: 'dark', heroImageId: '',
   sections: DEFAULT_WEBSITE_SECTIONS.map(section => ({...section})),
   aboutHeading: '우리의 이야기', aboutBody: '', contactHeading: '함께 다음 장면을 만드세요.', contactText: '', contactUrl: '',
+  designPreset: 'studio', referenceTitle: '',
 };
 
 export function safeWebsiteLink(value: string) {
@@ -78,6 +81,9 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   const aboutBody = optionalText('aboutBody', 1200);
   const contactHeading = optionalText('contactHeading', 120, '함께 다음 장면을 만드세요.');
   const contactText = optionalText('contactText', 1200), contactUrl = optionalText('contactUrl', 2000);
+  const designPreset = data.designPreset === undefined ? 'studio' : data.designPreset;
+  if (!['studio','editorial','gallery'].includes(designPreset as string)) throw new Error('지원하지 않는 디자인 방향입니다.');
+  const referenceTitle = optionalText('referenceTitle', 180);
   if (referenceUrl) {
     let url: URL;
     try { url = new URL(referenceUrl); } catch { throw new Error('참고 URL은 http 또는 https 주소로 입력해 주세요.'); }
@@ -104,5 +110,5 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   });
   return {title, brand, headline, description, audience, referenceUrl, ctaLabel, accent,
     theme: data.theme, heroImageId, services: data.services.map(s => (s as string).trim()),
-    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl};
+    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle};
 }

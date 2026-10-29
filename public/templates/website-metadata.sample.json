@@ -1,0 +1,14 @@
+{
+  "brand": "모션 아틀리에",
+  "title": "모션 아틀리에 공식 홈페이지",
+  "headline": "당신의 브랜드를 움직이는 경험으로",
+  "description": "사진과 영상, 공간을 연결해 브랜드의 이야기를 전하는 크리에이티브 스튜디오입니다.",
+  "audience": "새로운 디지털 경험을 준비하는 브랜드",
+  "services": ["브랜드 웹사이트", "3D 갤러리", "브랜드 영상"],
+  "aboutHeading": "우리가 만드는 경험",
+  "aboutBody": "브랜드가 가진 자료와 이야기를 바탕으로 웹과 영상의 새로운 장면을 만듭니다.",
+  "contactHeading": "다음 프로젝트를 함께 시작하세요.",
+  "contactText": "프로젝트 내용과 원하는 제작 방향을 알려주세요.",
+  "contactUrl": "https://example.com/contact",
+  "ctaLabel": "프로젝트 문의"
+}

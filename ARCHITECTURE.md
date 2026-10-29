@@ -36,6 +36,8 @@ flowchart TB
 
 ## 실제 코드 경계
 
+전역 UI는 `app/layout.tsx` → `GlobalNavigation` + `MakerReferenceBar` + 우측 콘텐츠로 구성한다. `lib/motion-presets.ts`의 13개 프리셋·네 가지 해상도를 프로젝트 검증·빠른 제작·R3F·Remotion에서 공유한다. `lib/server/capcut-export.ts`는 완료된 작업 스냅샷의 MP4·에셋을 ZIP으로 묶는다. 웹 메타데이터·레퍼런스는 `website-metadata.ts`, `website-references.ts`, `/api/website-references`에서 처리한다. 블로그는 `BlogSkinBuilder` → `/api/blog-skins`·preview·export → `lib/server/blog-skins.ts` → 공통 `rasterize.ts`(Rust resvg)로 분리한다. 블로그 저장은 `.local-data/blog-skins/`이며 미디어 삭제 시 웹·영상·블로그 참조를 함께 검사한다.
+
 웹 제작기 MVP는 `components/WebsiteBuilder.tsx`(입력·저장·재열기), `components/WebsitePreview.tsx`(공통 랜딩 템플릿), `lib/website.ts`(입력 계약), `lib/server/websites.ts`(전용 JSON 저장), `/api/websites`와 `/api/websites/[id]`(목록·생성·조회·갱신)로 분리한다. 저장 경로는 `.local-data/websites/`이며 영상 프로젝트 목록과 분리한다. `/websites/[id]`는 저장된 내용으로 미리보기를 제공한다. 기존 미디어 삭제는 웹 프로젝트의 대표 이미지 참조도 검사한다.
 
 | 경계 | 현재 파일 | 책임 |
