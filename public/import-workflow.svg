@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" role="img" aria-labelledby="title desc">
+  <title id="title">Motion Studio 파일 기반 제작 흐름</title>
+  <desc id="desc">파일을 가져와 검증·저장하고 웹·3D·영상으로 구성해 검수하고 출력합니다.</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10" fill="#c4b5fd"/></marker></defs>
+  <rect width="1200" height="480" rx="20" fill="#0b1020"/>
+  <g font-family="system-ui,Malgun Gothic,sans-serif" fill="#f1f5f9">
+    <text x="48" y="55" font-size="26" font-weight="700">가져온 파일로 웹 · 3D · 영상을 제작합니다</text>
+    <text x="48" y="88" font-size="15" fill="#b6c2d6">Arch-Studio 중복 설계 참고 · 도면 자동 작도와 법규 엔진은 범위 제외</text>
+    <g fill="#151e30" stroke="#475569"><rect x="48" y="130" width="320" height="105" rx="14"/><rect x="440" y="130" width="320" height="105" rx="14"/><rect x="832" y="130" width="320" height="105" rx="14"/><rect x="832" y="305" width="320" height="105" rx="14"/><rect x="440" y="305" width="320" height="105" rx="14"/><rect x="48" y="305" width="320" height="105" rx="14"/></g>
+    <g font-size="20" font-weight="700"><text x="70" y="170">01 파일 가져오기</text><text x="462" y="170">02 검증 · 명시적 저장</text><text x="854" y="170">03 프로젝트 구성</text><text x="854" y="345">04 미리보기</text><text x="462" y="345">05 검수 · 저장</text><text x="70" y="345">06 결과 활용</text></g>
+    <g font-size="14" fill="#b6c2d6"><text x="70" y="205">사진 · 영상 · 음악 · GLB</text><text x="462" y="205">지원 형식 · 크기 · 원본 보존</text><text x="854" y="205">브랜드 · 미디어 · 장면 설정</text><text x="854" y="380">웹 랜딩 · 3D 뷰어 · 영상</text><text x="462" y="380">설정 · 에셋 참조 · 다시 열기</text><text x="70" y="380">저장 페이지 · MP4 등 지원 출력</text></g>
+    <text x="48" y="451" font-size="13" fill="#b6c2d6">resvg 연결은 SVG → PNG 필요 시 진행 예정 · CAD 자동 변환과 웹 내보내기는 후속 구현</text>
+  </g>
+  <g fill="none" stroke="#c4b5fd" stroke-width="2" marker-end="url(#arrow)"><path d="M375 182H427"/><path d="M767 182H819"/><path d="M992 244V292"/><path d="M820 357H773"/><path d="M428 357H381"/></g>
+</svg>

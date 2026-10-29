@@ -1,4 +1,6 @@
-﻿# Motion Studio — AI Architectural Studio 기획 v0.1
+# Motion Studio — AI Architectural Studio 기획 v0.1
+
+> 2026-10-30 범위 변경: 도면 생성·법규 판정·새 CAD 모델링은 현재 개발에서 제외합니다. Arch-Studio와 겹치는 부분은 참고하고 가져온 파일의 검증·미리보기·웹/3D/영상 제작을 진행합니다. 아래 기존 CAD 생성안보다 [파일 기반 제작 기준](IMPORT_WORKFLOW.md)이 우선합니다.
 
 2026-10-29. 상태: 확장 기획. 사용자가 제안한 건축 AI 모델링·인터랙티브 웹 전략을 Motion Studio의 공간 모듈에 추가한다. CAD·엔진 설치·연결, 실제 건축 모델 생성, PDF 생성은 이번 작업에서 수행하지 않는다.
 

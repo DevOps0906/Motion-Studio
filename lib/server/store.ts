@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {DEFAULT_PROJECT,validateProject,type MediaAsset,type Project,type RenderJob} from '../model';
+import type {WebsiteProject} from '../website';
 export const DATA=path.join(process.cwd(),'.local-data');
 export const validId=(id:string)=>/^[a-zA-Z0-9-]{1,80}$/.test(id);
 export async function writeJson(file:string,value:unknown){await fs.mkdir(path.dirname(file),{recursive:true});const temp=file+'.'+randomUUID()+'.tmp';await fs.writeFile(temp,JSON.stringify(value,null,2));for(let attempt=0;;attempt++){try{await fs.rename(temp,file);break;}catch(error){if(attempt>=7)throw error;await new Promise(resolve=>setTimeout(resolve,30*(attempt+1)));}}}
@@ -46,4 +47,13 @@ export type {RenderJob};
 
 
 
-export async function deleteMedia(id:string){if(id.startsWith('source-'))throw new Error('제공된 원본 캡처는 보존됩니다.');const asset=await readJson<MediaAsset>(fileFor('media',id));const projects=await listJson<Project>(path.join(DATA,'projects'));if(projects.some(p=>p.photos.includes(id)||p.brand.logoAssetId===id||p.audio.assetId===id))throw new Error('프로젝트에서 사용 중입니다. 먼저 프로젝트에서 제외해 주세요.');const all=await listMedia();if(all.some(m=>m.sourceAssetId===id))throw new Error('이 파일에서 만든 사진이 있습니다. 파생 사진의 원본 연결을 위해 보존합니다.');await fs.unlink(fileFor('media',asset.id));await fs.unlink(path.join(DATA,'files',asset.id));}
+export async function deleteMedia(id:string){
+ if(id.startsWith('source-'))throw new Error('제공된 원본 캡처는 보존됩니다.');
+ const asset=await readJson<MediaAsset>(fileFor('media',id));
+ const projects=await listJson<Project>(path.join(DATA,'projects'));
+ if(projects.some(p=>p.photos.includes(id)||p.brand.logoAssetId===id||p.audio.assetId===id))throw new Error('프로젝트에서 사용 중입니다. 먼저 프로젝트에서 제외해 주세요.');
+ const websites=await listJson<WebsiteProject>(path.join(DATA,'websites'));
+ if(websites.some(p=>p.heroImageId===id))throw new Error('웹 프로젝트에서 사용 중입니다. 먼저 대표 이미지를 변경해 주세요.');
+ const all=await listMedia();if(all.some(m=>m.sourceAssetId===id))throw new Error('이 파일에서 만든 사진이 있습니다. 파생 사진의 원본 연결을 위해 보존합니다.');
+ await fs.unlink(fileFor('media',asset.id));await fs.unlink(path.join(DATA,'files',asset.id));
+}

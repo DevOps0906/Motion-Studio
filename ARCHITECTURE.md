@@ -1,4 +1,6 @@
-﻿# Motion Studio — 구조도
+# Motion Studio — 구조도
+
+> 2026-10-30 범위 변경: 도면 생성·법규 판정·새 CAD 모델링은 현재 개발에서 제외합니다. Arch-Studio와 겹치는 부분은 참고하고 가져온 파일의 검증·미리보기·웹/3D/영상 제작을 진행합니다. 아래 기존 CAD 생성안보다 [파일 기반 제작 기준](IMPORT_WORKFLOW.md)이 우선합니다.
 
 시각 구조도: [SVG](public/architecture.svg), 앱 화면: `/architecture`.
 
@@ -34,6 +36,8 @@ flowchart TB
 
 ## 실제 코드 경계
 
+웹 제작기 MVP는 `components/WebsiteBuilder.tsx`(입력·저장·재열기), `components/WebsitePreview.tsx`(공통 랜딩 템플릿), `lib/website.ts`(입력 계약), `lib/server/websites.ts`(전용 JSON 저장), `/api/websites`와 `/api/websites/[id]`(목록·생성·조회·갱신)로 분리한다. 저장 경로는 `.local-data/websites/`이며 영상 프로젝트 목록과 분리한다. `/websites/[id]`는 저장된 내용으로 미리보기를 제공한다. 기존 미디어 삭제는 웹 프로젝트의 대표 이미지 참조도 검사한다.
+
 | 경계 | 현재 파일 | 책임 |
 | --- | --- | --- |
 | 대시보드·편집 | components/Studio.tsx | 프로젝트·미디어·렌더 관리 |
@@ -50,6 +54,8 @@ flowchart TB
 | 자동 생성 API | app/api/create-intro/route.ts | 템플릿 검증→저장→렌더 시작 |
 
 ## 계약과 확장
+
+SVG → PNG 변환은 Rust **resvg** 공통 계약으로 확장한다. 웹은 Node 서버 어댑터, 향후 데스크톱은 런타임에 맞는 Rust/Node 어댑터를 계획한다. 브라우저 오프라인 요구 시 WASM을 검토한다. 기존 사진 처리·3D 렌더·영상 인코딩과 책임을 분리하며 현재 런타임 연결은 미구현이다. 상세 구조도·계약: [SVG 래스터화 기획](RASTERIZATION_SPEC.md).
 
 현재 Project의 선택 필드 contentType/templateId/templateVersion은 기존 schemaVersion 1 프로젝트와 호환된다. 빠른 제작은 사진·로고 입력을 정규화된 Project로 바꾼 뒤 기존 렌더 파이프라인을 재사용한다. 향후 모듈은 입력 검증과 compositionId를 추가하며 미디어 저장·스냅샷·작업 상태 UI를 복제하지 않는다.
 

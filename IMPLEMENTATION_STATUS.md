@@ -75,6 +75,17 @@
 - 상태 표기는 전부 확장 기획/이 프로젝트에서 연결 미검증. 현재 사진 갤러리와 CAD 뷰어를 구분.
 - 이번 검증 결과: 타입 검사 성공. 기획 문서 10개, SVG 4개 경로·화면 앵커 4개·모바일 가로 넘침 검증 성공. 건축 전용 두 다이어그램을 브라우저 캡처로 시각 확인. 증거: out/qa/architectural-planning-result.json, architectural-system.png, architectural-lifecycle.png.
 
+## 2026-10-30 웹 제작기 MVP와 범위 조정
+
+- `/websites`: 브랜드·문구·서비스·대상 고객·참고 URL·테마·강조색·공유 이미지 입력, 실시간 랜딩 미리보기, 프로젝트 저장·수정·재열기.
+- `/api/websites`, `/api/websites/[id]`: 별도 웹 프로젝트 저장·목록·조회·갱신. 서버가 ID·버전·타임스탬프를 관리하고 잘못된 URL·색상·이미지 참조를 거절.
+- `/websites/[id]`: 저장된 페이지 미리보기. 편집 중 변경과 저장된 결과를 구분하고 이탈 시 미저장 변경 안내.
+- 대표 이미지로 사용하는 공유 미디어의 삭제 차단. 기존 영상 계약 테스트 유지.
+- Arch-Studio README를 참고하고 도면 자동 생성·법규 엔진·새 CAD 모델링은 현재 범위에서 제외. 가져온 파일을 활용하는 정책·구조도와 `/architecture` 화면 갱신.
+- Docker와 resvg는 보류하며 웹 제작의 차단 조건으로 두지 않음. URL 자동 분석·AI 생성·웹 내보내기·CAD 자동 변환은 미구현.
+- 검증: 타입·기존 영상 계약·웹 입력 계약 16개 거절 사례, 프로덕션 빌드, API 생성/수정/조회/목록·미디어 보호·교차 출처 차단, 브라우저 폼 생성/수정/재열기·390px 가로 넘침 없음. 증거: `out/qa/website-result.json`, `website-builder-desktop.png`, `website-builder-mobile.png`.
+- 재검증: `npm test`, `npm run typecheck`, `npm run build`; 실행 서버 대상 `WEBSITE_QA_URL` 설정 후 `node scripts/verify-websites.cjs`. 후자는 임시 QA 레코드를 만들고 자신의 레코드만 정리함.
+
 ## 건축 뷰어·GLB 모델 라이브러리 진행
 
 - 건축 뷰어에서 GLB 2.0을 로컬 미리보기하고, 사용자가 명시적으로 저장하면 `.local-data/models/`에 등록하도록 구현.
