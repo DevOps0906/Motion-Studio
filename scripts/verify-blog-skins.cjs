@@ -50,8 +50,8 @@ async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Pr
  let shot=await page._client().send('Page.captureScreenshot',{format:'png'});await fs.writeFile('out/qa/blog-builder-desktop.png',Buffer.from(shot.value.data,'base64'));
  const downloadDir=path.resolve('out/qa/blog-download-'+randomUUID());await fs.mkdir(downloadDir,{recursive:true});await page._client().send('Page.setDownloadBehavior',{behavior:'allow',downloadPath:downloadDir});
  await page.evaluate(()=>Array.from(document.querySelectorAll('.blog-skin-actions button')).find(button=>button.textContent.includes('ZIP')).click());
- await wait(async()=>{try{return(await fs.stat(path.join(downloadDir,'naver-blog-skin.zip'))).size>0;}catch{return false;}});
- const downloaded=unzipSync(new Uint8Array(await fs.readFile(path.join(downloadDir,'naver-blog-skin.zip'))));assert.ok(downloaded['skin-background-1920x900.png']);assert.ok(strFromU8(downloaded['widgets/menu-1.html']).includes('__TRANSPARENT_IMAGE_URL__'));
+ await wait(async()=>{try{return(await fs.stat(path.join(downloadDir,'homepage-blog-design.zip'))).size>0;}catch{return false;}});
+ const downloaded=unzipSync(new Uint8Array(await fs.readFile(path.join(downloadDir,'homepage-blog-design.zip'))));assert.ok(downloaded['skin-background-1920x900.png']);assert.ok(strFromU8(downloaded['widgets/menu-1.html']).includes('__TRANSPARENT_IMAGE_URL__'));
  await wait(()=>page.evaluate(()=>!document.querySelector('.blog-skin-form fieldset').disabled));
  await page.evaluate(()=>document.querySelector('.blog-skin-form .section-head button').click());
  await page.evaluate(id=>{const select=document.querySelector('select[aria-label="저장한 스킨"]');select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));},uiId);

@@ -22,7 +22,7 @@ export function recommendRequirements(answers:RequirementAnswers,features:readon
  const solutions=(answers.solutions||[]).filter(id=>Object.prototype.hasOwnProperty.call(names,id)).map(id=>names[id]);
  const selected=features.filter(feature=>answers.features.includes(feature.id));
  const reasons:string[]=[];
- if(answers.delivery==='blog')return {solutions,tier:null,blog:true,title:'홈페이지형 블로그',reasons:['주 제작물로 네이버 블로그를 선택했습니다. 블로그 스킨·메뉴·문의 동선을 먼저 설계하는 구성이 적합합니다.'],options:selected.map(item=>item.label)};
+ if(answers.delivery==='blog')return {solutions,tier:null,blog:true,title:'홈페이지형 블로그',reasons:['주 제작물로 홈페이지형 블로그 디자인를 선택했습니다. 블로그 스킨·메뉴·문의 동선을 먼저 설계하는 구성이 적합합니다.'],options:selected.map(item=>item.label)};
  let rank=answers.goal==='brand'?2:answers.goal==='growth'?1:0;
  if(answers.goal==='brand')reasons.push('브랜드 경험을 주요 목적으로 선택해 아트디렉션과 연출 설계를 우선합니다.');
  if(answers.goal==='growth')reasons.push('문의·고객 유입의 성장을 목표로 선택해 전환 동선과 운영 설계가 필요합니다.');
@@ -30,4 +30,4 @@ export function recommendRequirements(answers:RequirementAnswers,features:readon
  if(!reasons.length)reasons.push('회사 소개와 기본 문의 동선을 중심으로 시작할 수 있어 BASIC이 적합합니다.');
  return {solutions,tier:(['basic','business','premium'] as const)[rank],blog:answers.delivery==='both',title:['BASIC','BUSINESS','PREMIUM'][rank],reasons,options:selected.filter(item=>['threeD','commerce','languages'].includes(item.id)).map(item=>item.label)};
 }
-export function requirementReport(answers:RequirementAnswers){return {format:'motion-studio-requirements-v1',createdAt:new Date().toISOString(),answers,recommendation:recommendRequirements(answers,REQUIREMENT_FEATURES),notice:'초기 요구사항 기반 추천이며 확정 견적·기능 제공 완료를 의미하지 않습니다. 홈페이지형 블로그는 네이버 수동 적용 패키지입니다.'};}
+export function requirementReport(answers:RequirementAnswers){return {format:'motion-studio-requirements-v1',createdAt:new Date().toISOString(),answers,recommendation:recommendRequirements(answers,REQUIREMENT_FEATURES),notice:'초기 요구사항 기반 추천이며 확정 견적·기능 제공 완료를 의미하지 않습니다. 홈페이지형 블로그는 블로그 수동 적용 패키지입니다.'};}

@@ -10,7 +10,7 @@ const groups = [
   ]},
   {label:'제작 공간',items:[
     {href:'/websites',label:'웹사이트 제작기',icon:'W'},
-    {href:'/blog-skins',label:'네이버 블로그 스킨',icon:'B'},
+    {href:'/blog-skins',label:'홈페이지형 블로그 디자인',icon:'B'},
     {href:'/gallery',label:'3D 갤러리',icon:'◈'},
     {href:'/architecture/viewer',label:'모델 뷰어',icon:'⌂'},
     {href:'/showcase',label:'랜딩 모션 데모',icon:'↗'},

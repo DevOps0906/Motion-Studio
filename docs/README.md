@@ -10,7 +10,7 @@
 | [구조·파일 처리 설계](architecture/README.md) | 4개 문서 |
 | [건축·3D 확장 설계](architecture/3d/README.md) | 9개 문서 |
 | [웹사이트 제작](features/websites/README.md) | 3개 문서 |
-| [네이버 블로그 제작](features/blog/README.md) | 2개 문서 |
+| [홈페이지형 블로그 디자인 제작](features/blog/README.md) | 2개 문서 |
 | [영상·콘텐츠 제작](features/video/README.md) | 2개 문서 |
 | [디자인·모션](design/README.md) | 3개 문서 |
 | [개발 단계·구현 현황](development/README.md) | 2개 문서 |
