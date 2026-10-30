@@ -2,6 +2,8 @@ import {validateProductionBrief,type WebsiteProductionBrief} from './website-pro
 export const WEBSITE_SECTION_LABELS = {about: '브랜드 소개', services: '서비스', contact: '문의 안내'} as const;
 export type WebsiteSectionId = keyof typeof WEBSITE_SECTION_LABELS;
 export type WebsiteSection = {id: WebsiteSectionId; enabled: boolean};
+export type WebsitePageContent = Pick<WebsiteBrief,'aboutHeading'|'aboutBody'|'services'|'contactHeading'|'contactText'|'contactUrl'|'ctaLabel'>;
+export type WebsitePage = {content?:WebsitePageContent;id: string; title: string; headline: string; description: string; sections: WebsiteSection[]};
 export const DEFAULT_WEBSITE_SECTIONS: WebsiteSection[] = [
   {id: 'about', enabled: true}, {id: 'services', enabled: true}, {id: 'contact', enabled: true},
 ];
@@ -35,6 +37,7 @@ export type WebsiteBrief = {
   contactUrl: string;
   designPreset: 'studio' | 'editorial' | 'gallery';
   referenceTitle: string;
+  pages: WebsitePage[];
 };
 
 export type WebsiteProject = WebsiteBrief & {
@@ -52,6 +55,7 @@ export const EMPTY_WEBSITE: WebsiteBrief = {
   sections: DEFAULT_WEBSITE_SECTIONS.map(section => ({...section})),
   aboutHeading: '우리의 이야기', aboutBody: '', contactHeading: '함께 다음 장면을 만드세요.', contactText: '', contactUrl: '',
   designPreset: 'studio', referenceTitle: '', designKit: 'original',
+  pages: [],
 };
 
 export function safeWebsiteLink(value: string) {
@@ -95,6 +99,40 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   const designKit = data.designKit === undefined ? 'original' : data.designKit;
   if (typeof designKit !== 'string' || !Object.prototype.hasOwnProperty.call(WEBSITE_DESIGN_KITS, designKit)) throw new Error('지원하지 않는 디자인 키트입니다.');
   const referenceTitle = optionalText('referenceTitle', 180);
+  const rawPages = data.pages === undefined ? [] : data.pages;
+  if (!Array.isArray(rawPages) || rawPages.length > 12) throw new Error('추가 페이지는 최대 12개까지 만들 수 있습니다.');
+  const pageIds = new Set<string>();
+  const pages = rawPages.map((raw): WebsitePage => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('페이지 정보를 확인해 주세요.');
+    const page = raw as Record<string, unknown>;
+    const id = typeof page.id === 'string' ? page.id : '';
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || id.length > 48 || id === 'index' || pageIds.has(id)) throw new Error('페이지 주소는 영문 소문자·숫자·하이픈으로 중복 없이 입력해 주세요.');
+    pageIds.add(id);
+    const title = typeof page.title === 'string' ? page.title.trim() : '';
+    const pageHeadline = typeof page.headline === 'string' ? page.headline.trim() : '';
+    const pageDescription = typeof page.description === 'string' ? page.description.trim() : '';
+    if (!title || title.length > 80 || !pageHeadline || pageHeadline.length > 160 || pageDescription.length > 1200) throw new Error('페이지 이름·제목·소개 길이를 확인해 주세요.');
+    if (!Array.isArray(page.sections) || page.sections.length !== 3) throw new Error('페이지 섹션 구성을 확인해 주세요.');
+    const sections = page.sections.map((section): WebsiteSection => {
+      if (!section || typeof section !== 'object' || Array.isArray(section)) throw new Error('페이지 섹션 정보를 확인해 주세요.');
+      const value = section as Record<string, unknown>;
+      if (typeof value.id !== 'string' || !Object.prototype.hasOwnProperty.call(WEBSITE_SECTION_LABELS, value.id) || typeof value.enabled !== 'boolean') throw new Error('페이지 섹션 정보를 확인해 주세요.');
+      return {id: value.id as WebsiteSectionId, enabled: value.enabled};
+    });
+    if (new Set(sections.map(section => section.id)).size !== 3) throw new Error('페이지 섹션이 중복되었습니다.');
+    let content:WebsitePageContent|undefined;
+    if(page.content!==undefined){
+      if(!page.content||typeof page.content!=='object'||Array.isArray(page.content))throw new Error('페이지 상세 내용을 확인해 주세요.');
+      const raw=page.content as Record<string,unknown>;
+      const field=(key:string,max:number,required=false)=>{const value=raw[key];if(typeof value!=='string'||value.length>max||(required&&!value.trim()))throw new Error('페이지 상세 문구의 길이와 필수 항목을 확인해 주세요.');return value.trim();};
+      const services=raw.services;
+      if(!Array.isArray(services)||services.length<1||services.length>6||services.some(value=>typeof value!=='string'||!value.trim()||value.length>100))throw new Error('페이지 서비스는 1~6개, 항목별 100자 이하로 입력해 주세요.');
+      const contactUrl=field('contactUrl',2000);
+      if(contactUrl&&!safeWebsiteLink(contactUrl))throw new Error('페이지 문의 링크는 인증 정보 없는 http 또는 https 주소로 입력해 주세요.');
+      content={aboutHeading:field('aboutHeading',120),aboutBody:field('aboutBody',1200),services:services.map(value=>(value as string).trim()),contactHeading:field('contactHeading',120),contactText:field('contactText',1200),contactUrl,ctaLabel:field('ctaLabel',40,true)};
+    }
+    return {id, title, headline: pageHeadline, description: pageDescription, sections, ...(content?{content}:{})};
+  });
   if (referenceUrl) {
     let url: URL;
     try { url = new URL(referenceUrl); } catch { throw new Error('참고 URL은 http 또는 https 주소로 입력해 주세요.'); }
@@ -121,5 +159,10 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   });
   return {title, brand, headline, description, audience, referenceUrl, ctaLabel, accent,
     theme: data.theme, heroImageId, services: data.services.map(s => (s as string).trim()),
-    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief)};
+    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief), pages};
+}
+
+// One page projection shared by the editor preview and the downloadable site.
+export function resolveWebsitePage(brief:WebsiteBrief,page?:WebsitePage):WebsiteBrief {
+  return page?{...brief,...page.content,title:page.title,headline:page.headline,description:page.description,sections:page.sections}:brief;
 }

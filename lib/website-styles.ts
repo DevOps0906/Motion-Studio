@@ -13,4 +13,5 @@ export const WEBSITE_PREVIEW_CSS = `.website-preview{font:14px/1.6 system-ui,-ap
 @media(prefers-reduced-motion:reduce){.website-preview *{animation:none!important;transition:none!important}}
 @container(max-width:600px){.website-preview:where([class*="website-kit-"]:not(.website-kit-original)){--kit-space:36px}}
 
+.website-preview .website-nav{flex-wrap:wrap}.website-preview .website-nav nav{display:flex;gap:12px;flex-wrap:wrap;max-width:100%}.website-preview .website-nav nav a{color:inherit;font-size:12px;text-decoration:none;overflow-wrap:anywhere}.website-preview .website-nav a[aria-current=page]{text-decoration:underline;text-underline-offset:5px}.website-preview .website-nav a:focus-visible{outline:2px solid var(--site-accent);outline-offset:4px}
 `;

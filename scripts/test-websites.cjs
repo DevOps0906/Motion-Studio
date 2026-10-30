@@ -96,3 +96,59 @@ for(const productionBrief of [null,[],{...production,tier:'advanced'},{...produc
 assert.equal(validateWebsiteBrief(good).productionBrief,undefined);
 assert.ok(!exportWebsiteHtml({...good,productionBrief:{...production,operations:'PRIVATE_OPERATIONS_NOTE'}}).includes('PRIVATE_OPERATIONS_NOTE'));
 console.log('PASS: production brief persistence contract, bounded options, legacy compatibility and private notes excluded from public HTML');
+
+// Multi-page persistence, preview/export parity and downloadable archive contract.
+const extraPage={id:'about',title:'회사 소개',headline:'우리의 새 이야기',description:'추가 페이지 소개',sections:[{id:'contact',enabled:false},{id:'about',enabled:true},{id:'services',enabled:false}]};
+const multi=validateWebsiteBrief({...good,pages:[extraPage]});
+assert.equal(multi.pages[0].id,'about');
+assert.equal(validateWebsiteBrief({...good,pages:undefined}).pages.length,0);
+for(const pages of [[{...extraPage,id:'index'}],[{...extraPage,id:'../secret'}],[{...extraPage,id:'About'}],[extraPage,extraPage],Array(13).fill(extraPage),[{...extraPage,sections:[extraPage.sections[0],extraPage.sections[0],extraPage.sections[2]]}]])assert.throws(()=>validateWebsiteBrief({...good,pages}));
+const detailHtml=exportWebsiteHtml(multi,'',multi.pages[0]);
+assert.ok(detailHtml.includes('<h1>우리의 새 이야기</h1>'));
+assert.ok(detailHtml.includes('<p>추가 페이지 소개</p>'));
+assert.ok(detailHtml.includes('href="./index.html"'));
+assert.ok(detailHtml.includes('href="./about.html" aria-current="page"'));
+assert.ok(!detailHtml.includes('data-website-section="contact"'));
+assert.ok(!exportWebsiteHtml(good).includes('href="./index.html"'));
+(async()=>{
+ let saved=multi;
+ const handler={exports:{}};
+ const compiled=ts.transpileModule(fs.readFileSync('app/api/websites/[id]/export/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+ vm.runInNewContext(compiled,{module:handler,exports:handler.exports,Response,require:id=>{
+  if(id==='node:fs')return {promises:{}};
+  if(id==='fflate')return require('fflate');
+  if(id.endsWith('/server/websites'))return {getWebsite:async()=>saved};
+  if(id.endsWith('/server/store'))return {apiError:error=>Response.json({error:error.message},{status:400})};
+  if(id.endsWith('/website-export'))return {exportWebsiteHtml};
+  throw Error('Unexpected dependency '+id);
+ }});
+ const response=await handler.exports.GET(null,{params:Promise.resolve({id:'qa-project'})});
+ assert.equal(response.headers.get('content-type'),'application/zip');
+ const files=require('fflate').unzipSync(new Uint8Array(await response.arrayBuffer()));
+ assert.equal(Object.keys(files).sort().join(','),'README.txt,about.html,index.html');
+ for(const filename of ['index.html','about.html'])assert.ok(require('fflate').strFromU8(files[filename]).includes('href="./about.html"'));
+ saved=validateWebsiteBrief({...good,pages:[]});
+ const single=await handler.exports.GET(null,{params:Promise.resolve({id:'qa-project'})});
+ assert.equal(single.headers.get('content-type'),'text/html; charset=utf-8');
+ assert.ok(single.headers.get('content-disposition').endsWith('.html"'));
+ console.log('PASS: multi-page migration, invalid/duplicate addresses, per-page sections, relative navigation, ZIP payload and single-page compatibility');
+})().catch(error=>{console.error(error);process.exitCode=1;});
+
+const {resolveWebsitePage}=loadTs('lib/website.ts');
+const customContent={aboutHeading:'페이지 전용 소개',aboutBody:'독립된 이야기',services:['전용 서비스'],contactHeading:'페이지 전용 문의',contactText:'상담 안내',contactUrl:'https://example.com/page-contact',ctaLabel:'상담하기'};
+const customPage={...extraPage,sections:good.sections,content:customContent};
+const customSite=validateWebsiteBrief({...good,pages:[customPage]});
+const projected=resolveWebsitePage(customSite,customSite.pages[0]);
+assert.equal(projected.aboutBody,'독립된 이야기');assert.equal(projected.services.join(','),'전용 서비스');
+assert.equal(projected.contactUrl,customContent.contactUrl);
+assert.equal(resolveWebsitePage(customSite).aboutBody,good.aboutBody);
+const inherited=resolveWebsitePage({...customSite,aboutBody:'수정된 홈 소개'},extraPage);
+assert.equal(inherited.aboutBody,'수정된 홈 소개');
+assert.equal(resolveWebsitePage({...customSite,aboutBody:'수정된 홈 소개'},customSite.pages[0]).aboutBody,'독립된 이야기');
+assert.equal(validateWebsiteBrief(JSON.parse(JSON.stringify(customSite))).pages[0].content.aboutHeading,'페이지 전용 소개');
+const customHtml=exportWebsiteHtml(customSite,'',customSite.pages[0]);
+for(const value of ['페이지 전용 소개','독립된 이야기','전용 서비스','페이지 전용 문의','상담 안내','https://example.com/page-contact','상담하기'])assert.ok(customHtml.includes(value));
+assert.ok(!exportWebsiteHtml(customSite).includes('독립된 이야기'));
+for(const content of [null,[],{...customContent,services:[]},{...customContent,services:[' ']},{...customContent,services:Array(7).fill('서비스')},{...customContent,aboutBody:'x'.repeat(1201)},{...customContent,ctaLabel:''},{...customContent,contactUrl:'javascript:alert(1)'},{...customContent,contactUrl:'https://user:password@example.com'}])assert.throws(()=>validateWebsiteBrief({...good,pages:[{...extraPage,content}]}));
+assert.ok(exportWebsiteHtml({...customSite,pages:[{...customPage,content:{...customContent,aboutBody:'<script>alert(1)</script>'}}]},'',customPage).includes('&lt;script&gt;'));
+console.log('PASS: page-specific content persistence, home inheritance, independent services/contact, validation and escaped HTML output');

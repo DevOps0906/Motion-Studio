@@ -7,6 +7,7 @@ import {useEffect, useState, useRef, type FormEvent} from 'react';
 import {EMPTY_WEBSITE, WEBSITE_SECTION_LABELS, validateWebsiteBrief, safeWebsiteLink, type WebsiteBrief, type WebsiteProject} from '../lib/website';
 import type {MediaAsset} from '../lib/model';
 import WebsitePreview from './WebsitePreview';
+import WebsitePagesEditor from './WebsitePagesEditor';
 import WebsiteProductionForm from './WebsiteProductionForm';
 import WebsiteReferencePicker from './WebsiteReferencePicker';
 import {referenceDesign,type ReferenceCard} from '../lib/website-references';
@@ -29,6 +30,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
   const [dirty, setDirty] = useState(false), [error, setError] = useState('');
   const [notice, setNotice] = useState(''), [mediaError, setMediaError] = useState('');
   const [previewWidth, setPreviewWidth] = useState<'desktop' | 'mobile'>('desktop');
+  const [activePageId, setActivePageId] = useState('index');
   const busy = loading || saving || exporting;
   const activeType=brief.productionBrief?.tier||initialType;
   const metadataInput=useRef<HTMLInputElement>(null);
@@ -64,9 +66,17 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
   function edit<K extends keyof WebsiteBrief>(key: K, value: WebsiteBrief[K]) {
     setBrief(current => ({...current, [key]: value})); setDirty(true); setNotice('');
   }
+  function addPage() {
+    if (brief.pages.length >= 12) return;
+    const base = 'new-page'; let id = base, index = 2;
+    while (brief.pages.some(page => page.id === id)) id = `${base}-${index++}`;
+    edit('pages', [...brief.pages, {id, title:'새 페이지', headline:'새 페이지 제목', description:'이 페이지에서 전할 내용을 입력하세요.', sections:brief.sections.map(section=>({...section}))}]);
+    setActivePageId(id);
+  }
   function open(project?: WebsiteProject) {
     if (dirty && !window.confirm('저장하지 않은 변경을 버리고 이동할까요?')) return;
     setBrief(project ? {...project, services: [...project.services]} : {...websiteTypeBrief(initialType),theme:loadProductionSettings().websiteTheme,accent:loadProductionSettings().websiteAccent});
+    setActivePageId('index');
     setSelectedId(project?.id ?? ''); setDirty(false); setError(''); setNotice(project ? '저장된 프로젝트를 열었습니다.' : '새 프로젝트를 시작합니다.');
   }
   function moveSection(index: number, offset: number) {
@@ -87,10 +97,11 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
       }
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
-      link.href = url; link.download = `motion-studio-${selectedId}.html`;
+      const isMultiPage=brief.pages.length>0;
+      link.href = url; link.download = `motion-studio-${selectedId}.${isMultiPage?'zip':'html'}`;
       document.body.append(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setNotice('HTML 파일을 내려받았습니다. 이미지와 스타일이 포함되어 서버 없이 열 수 있습니다.');
+      setNotice(isMultiPage?'전체 페이지가 담긴 ZIP 파일을 내려받았습니다. 압축을 풀고 index.html을 열어 확인하세요.':'HTML 파일을 내려받았습니다. 이미지와 스타일이 포함되어 서버 없이 열 수 있습니다.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '내보내지 못했습니다.'); }
     finally { setExporting(false); }
   }
@@ -109,7 +120,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
 
   return <main className="website-builder">
     <header className="website-builder-header"><div><div className="eyebrow">MOTION STUDIO / WEBSITE</div><h1>{WEBSITE_TYPES[activeType].title}</h1><p>브랜드 정보를 입력하고 랜딩 페이지를 저장·미리보기 합니다.</p></div><a className="button" href="/websites">제작 유형 선택</a></header>
-    <div className="website-scope-note">메타데이터로 홈페이지 내용을 채우고 레퍼런스의 분류에 맞춰 디자인을 구성합니다. 원본 사이트의 코드·문구·이미지는 복제하지 않으며 자동 배포는 포함하지 않습니다.</div>
+    <div className="website-scope-note">페이지를 추가해 소개·서비스·문의 내용을 나누고, 저장 후 전체 사이트를 ZIP으로 내보낼 수 있습니다. 레퍼런스는 디자인 방향을 정하는 데 활용합니다.</div>
     <WebsiteProductionForm brief={brief} tier={activeType} onChange={value=>{setBrief(value);setDirty(true);}} onApply={()=>{setNotice('제작 기획을 반영했습니다. 편집 내용을 확인한 뒤 저장해 주세요.');document.getElementById('website-editor-fields')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}}/>
     <div className="website-builder-grid" id="website-editor-fields">
       <aside className="website-project-list panel"><div className="section-head"><h2>웹 프로젝트</h2><button disabled={busy} onClick={() => open()}>＋ 새로 만들기</button></div>
@@ -123,6 +134,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
         <div className="metadata-import"><button type="button" disabled={busy} onClick={()=>metadataInput.current?.click()}>홈페이지 정보 JSON 가져오기</button><a href="/templates/website-metadata.sample.json" download>메타데이터 양식 ↓</a><p className="small">브랜드·소개·서비스·문의 정보를 페이지 초안으로 구성합니다.</p><input className="website-metadata-input" ref={metadataInput} hidden type="file" accept=".json,.jsonld,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void importMetadata(file);}}/></div>
         <WebsiteReferencePicker disabled={busy} onChoose={chooseReference}/>
         <fieldset disabled={busy}>
+          <WebsitePagesEditor brief={brief} activePageId={activePageId} onSelect={setActivePageId} onChange={pages=>edit('pages',pages)} onAdd={addPage}/>
           <label>프로젝트 이름<input name="title" required maxLength={120} value={brief.title} placeholder="예: 스튜디오 소개 페이지" onChange={e => edit('title', e.target.value)}/></label>
           <label>브랜드명<input name="brand" required maxLength={80} value={brief.brand} placeholder="예: MOTION ATELIER" onChange={e => edit('brand', e.target.value)}/></label>
           <label>핵심 문구<input name="headline" required maxLength={160} value={brief.headline} placeholder="브랜드가 전할 한 문장" onChange={e => edit('headline', e.target.value)}/></label>
@@ -148,10 +160,10 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
         {error && <p role="alert" className="error-text">{error}</p>}
         <p role="status" className="small">{notice}</p>
         {selectedId && <a className="button" href={`/websites/${selectedId}`}>저장된 미리보기 열기 ↗</a>}
-        <button className="full website-export-button" type="button" disabled={!selectedId || dirty || busy} onClick={() => void download()}>{exporting ? '내보내는 중…' : 'HTML 파일 내보내기 ↓'}</button>
-        <p className="small">저장된 내용을 내보냅니다. 변경 후 먼저 저장해 주세요. 문의 링크는 연결만 제공하며 문의 폼 전송 기능은 포함하지 않습니다.</p>
+        <button className="full website-export-button" type="button" disabled={!selectedId || dirty || busy} onClick={() => void download()}>{exporting ? '내보내는 중…' : brief.pages.length ? '전체 사이트 ZIP 내보내기 ↓' : 'HTML 파일 내보내기 ↓'}</button>
+        <p className="small">추가 페이지는 저장 후 전체 HTML과 공통 스타일이 포함된 ZIP으로 출력합니다.</p>
       </form>
-      <section className="website-preview-panel" aria-label="랜딩 페이지 미리보기"><div className="section-head"><div><h2>실시간 미리보기</h2><p className="small">입력한 내용으로 구성한 브랜드 랜딩 템플릿</p></div><div className="actions"><button aria-pressed={previewWidth === 'desktop'} onClick={() => setPreviewWidth('desktop')}>데스크톱</button><button aria-pressed={previewWidth === 'mobile'} onClick={() => setPreviewWidth('mobile')}>모바일</button></div></div><div className={`website-preview-frame website-width-${previewWidth}`}><WebsitePreview brief={brief}/></div></section>
+      <section className="website-preview-panel" aria-label="랜딩 페이지 미리보기"><div className="section-head"><div><h2>실시간 미리보기</h2><p className="small">입력한 내용으로 구성한 브랜드 랜딩 템플릿</p></div><div className="actions"><button aria-pressed={previewWidth === 'desktop'} onClick={() => setPreviewWidth('desktop')}>데스크톱</button><button aria-pressed={previewWidth === 'mobile'} onClick={() => setPreviewWidth('mobile')}>모바일</button></div></div><div className={`website-preview-frame website-width-${previewWidth}`}><WebsitePreview brief={brief} page={brief.pages.find(page=>page.id===activePageId)} onNavigate={setActivePageId}/></div></section>
     </div>
   </main>;
 }

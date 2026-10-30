@@ -1,4 +1,4 @@
-import {validateWebsiteBrief, websiteCtaHref, type WebsiteBrief} from './website';
+import {resolveWebsitePage, validateWebsiteBrief, websiteCtaHref, type WebsiteBrief, type WebsitePage} from './website';
 import {WEBSITE_PREVIEW_CSS} from './website-styles';
 
 function escape(value: string) {
@@ -6,8 +6,11 @@ function escape(value: string) {
 }
 
 // Only accepts an internally resolved raster image. No local API URLs survive export.
-export function exportWebsiteHtml(input: WebsiteBrief, imageDataUrl = '') {
-  const brief = validateWebsiteBrief(input);
+export function exportWebsiteHtml(input: WebsiteBrief, imageDataUrl = '', page?: WebsitePage) {
+  const base = validateWebsiteBrief(input);
+  const validPage=page?base.pages.find(item=>item.id===page.id):undefined;
+  if(page&&!validPage)throw new Error('출력할 페이지를 찾을 수 없습니다.');
+  const brief = resolveWebsitePage(base,validPage);
   if (brief.heroImageId && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(imageDataUrl)) throw new Error('내보낼 대표 이미지를 확인해 주세요.');
   const e = escape;
   const cta = (href: string) => href ? `<a class="website-cta" href="${e(href)}">${e(brief.ctaLabel)} <span aria-hidden="true">↗</span></a>` : '';
@@ -20,7 +23,7 @@ export function exportWebsiteHtml(input: WebsiteBrief, imageDataUrl = '') {
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${e(brief.title)}</title><meta name="description" content="${e(brief.description)}"><style>body{margin:0;background:${brief.theme === 'dark' ? '#10131c' : '#faf9f6'}}.website-export-frame{container-type:inline-size;max-width:1600px;margin:auto}${WEBSITE_PREVIEW_CSS}</style></head>
 <body><main class="website-export-frame"><article class="website-preview website-theme-${brief.theme} website-design-${brief.designPreset} website-kit-${brief.designKit}" style="--site-accent:${brief.accent}">
-<header class="website-nav"><strong>${e(brief.brand)}</strong><span>BRAND EXPERIENCE</span></header>
+<header class="website-nav"><strong>${e(brief.brand)}</strong><nav aria-label="사이트 페이지"><a href="${base.pages.length ? './index.html' : '#'}"${!page?' aria-current="page"':''}>HOME</a>${base.pages.map(item=>`<a href="./${e(item.id)}.html"${page?.id===item.id?' aria-current="page"':''}>${e(item.title)}</a>`).join('')}</nav></header>
 <section class="website-hero"><div><div class="website-eyebrow">${e(brief.audience || '당신의 고객을 위한 새로운 경험')}</div><h1>${e(brief.headline)}</h1><p>${e(brief.description)}</p>${cta(websiteCtaHref(brief))}</div>${cover}</section>
 ${sections}
 <footer class="website-footer"><strong>${e(brief.brand)}</strong><span>${e(brief.title)}</span></footer>
