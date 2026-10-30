@@ -1,4 +1,4 @@
-// Independently implemented motion families; sources are in MOTION_BENCHMARK.md.
+// Independently implemented motion families; sources are in docs/design/MOTION_BENCHMARK.md.
 export const motionPresets = [
   {id:'mosaic',name:'모자이크 줌',description:'가까운 사진에서 전체 사진월로',number:'01',family:'줌'},
   {id:'diagonal',name:'대각 패닝',description:'사진 사이를 따라 흐르는 카메라',number:'02',family:'패닝'},

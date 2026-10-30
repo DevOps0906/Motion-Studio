@@ -2,7 +2,7 @@
 
 > 2026-10-30 범위 변경: 도면 생성·법규 판정·새 CAD 모델링은 현재 개발에서 제외합니다. Arch-Studio와 겹치는 부분은 참고하고 가져온 파일의 검증·미리보기·웹/3D/영상 제작을 진행합니다. 아래 기존 CAD 생성안보다 [파일 기반 제작 기준](IMPORT_WORKFLOW.md)이 우선합니다.
 
-시각 구조도: [SVG](public/architecture.svg), 앱 화면: `/architecture`.
+시각 구조도: [SVG](../../public/architecture.svg), 앱 화면: `/architecture`.
 
 ```mermaid
 flowchart TB
@@ -67,7 +67,7 @@ SVG → PNG 변환은 Rust **resvg** 공통 계약으로 확장한다. 웹은 No
 
 ## AI 건축 확장 — 계획
 
-상세 기획: [ARCHITECTURAL_STUDIO_PLAN.md](ARCHITECTURAL_STUDIO_PLAN.md). 새 시각 구조도: [시스템](public/architectural-system.svg), [개발주기](public/architectural-lifecycle.svg).
+상세 기획: [ARCHITECTURAL_STUDIO_PLAN.md](3d/ARCHITECTURAL_STUDIO_PLAN.md). 새 시각 구조도: [시스템](../../public/architectural-system.svg), [개발주기](../../public/architectural-lifecycle.svg).
 
 ```mermaid
 flowchart TB

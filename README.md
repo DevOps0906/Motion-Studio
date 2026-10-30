@@ -6,29 +6,43 @@
 
 저장소: [DevOps0906/Motion-Studio](https://github.com/DevOps0906/Motion-Studio) · 기본 브랜치: `main`.
 
+## 연관·참고 저장소
+
+| 저장소 | Motion Studio와의 연관성 | 참고 범위 |
+| --- | --- | --- |
+| [DevOps0906/Arch-Studio](https://github.com/DevOps0906/Arch-Studio) | 건축·공간 자료와 제작 흐름을 연계하는 관련 프로젝트 | 웹·데스크톱 구조, 파일 가져오기·검증, 원본·파생 에셋 관리, 모델·메타데이터 전달 설계 |
+
+Motion Studio는 가져온 자료를 웹사이트·3D 체험·영상으로 제작하는 플랫폼입니다. Arch-Studio와 겹치는 구조와 파일 처리 설계를 참고하며, 두 프로젝트 사이의 파일·메타데이터 연계를 발전시키는 방향을 갖습니다. 현재 저장소 간 자동 동기화나 실행 시 서비스 의존성은 연결하지 않았습니다. 상세 기준은 [참고 저장소 목록](docs/references/REFERENCE_REPOSITORIES.md)과 [파일 기반 제작 기준](docs/architecture/IMPORT_WORKFLOW.md)을 따릅니다.
+
+## 문서 안내
+
+문서는 [docs/README.md](docs/README.md)에서 종류별로 찾을 수 있습니다. 제품 기획·설계·기능별 안내·디자인·개발 현황·참고 자료를 분류했고, 각 폴더 README에 문서 목록을 제공합니다.
+
 ## 제품 기획과 개발 범위
 
 ### 추가된 제작 기능
 
 - **전역 GNB:** 웹·영상·3D·블로그·구조도·레퍼런스가 좌측 메뉴를 유지한 우측 콘텐츠에서 열립니다.
-- **인트로:** 기존 3개에 10개를 추가한 13개 모션 프리셋. 빠른 제작·새 프로젝트·편집기에서 720p/1080p/1440p/4K 해상도를 선택합니다. [벤치마크·출력 규격](MOTION_BENCHMARK.md)
-- **CapCut:** 완료된 MP4 또는 사진·로고·음악 포함 ZIP을 내려받아 CapCut의 가져오기에서 사용합니다. ZIP은 먼저 풀어야 하며 네이티브 CapCut 프로젝트·키프레임 자동 변환은 아닙니다. [지원 범위](CAPCUT_EXPORT.md)
+- **인트로:** 기존 3개에 10개를 추가한 13개 모션 프리셋. 빠른 제작·새 프로젝트·편집기에서 720p/1080p/1440p/4K 해상도를 선택합니다. [벤치마크·출력 규격](docs/design/MOTION_BENCHMARK.md)
+- **CapCut:** 완료된 MP4 또는 사진·로고·음악 포함 ZIP을 내려받아 CapCut의 가져오기에서 사용합니다. ZIP은 먼저 풀어야 하며 네이티브 CapCut 프로젝트·키프레임 자동 변환은 아닙니다. [지원 범위](docs/features/video/CAPCUT_EXPORT.md)
 - **웹 제작:** 홈페이지 정보 JSON/JSON-LD 가져오기로 브랜드·소개·서비스·문의 내용을 구성합니다. Awwwards 공개 검색 카드를 선택하면 분류를 자체 스튜디오/에디토리얼/갤러리 디자인에 매핑합니다. Dribbble 조회 제한 시 외부 검색·작품 URL 입력으로 이어갑니다. [메타데이터 양식](public/templates/website-metadata.sample.json)
-- **모든 제작기의 레퍼런스:** 상단에서 분야·자료 유형·기술·검색어·북마크로 58개 탐색처를 필터링합니다. 목록 검색과 외부 검색은 구분하며 템플릿·코드·에셋을 자동 구매·다운로드하지 않습니다. [기획](REFERENCE_WORKFLOW.md)
-- **네이버 블로그:** 브랜드·메뉴 링크·색상·로고·대표 이미지로 스킨 PNG를 만들고 타이틀·투명 위젯·좌표표·설치 안내 ZIP을 출력합니다. `resvg`를 실제 PNG 경로에 적용했습니다. [제작·설치 범위](NAVER_BLOG_STUDIO.md)
+- **모든 제작기의 레퍼런스:** 상단에서 분야·자료 유형·기술·검색어·북마크로 58개 탐색처를 필터링합니다. 목록 검색과 외부 검색은 구분하며 템플릿·코드·에셋을 자동 구매·다운로드하지 않습니다. [기획](docs/references/REFERENCE_WORKFLOW.md)
+- **네이버 블로그:** 브랜드·메뉴 링크·색상·로고·대표 이미지로 스킨 PNG를 만들고 타이틀·투명 위젯·좌표표·설치 안내 ZIP을 출력합니다. `resvg`를 실제 PNG 경로에 적용했습니다. [제작·설치 범위](docs/features/blog/NAVER_BLOG_STUDIO.md)
 
 실행 중인 앱: [웹 제작기](http://127.0.0.1:4101/websites), [블로그 스킨](http://127.0.0.1:4101/blog-skins), [레퍼런스 라이브러리](http://127.0.0.1:4101/references), [CapCut 내보내기](http://127.0.0.1:4101/exports).
 
-2026-10-30 범위: Arch-Studio와 중복되는 설계는 참고하고, **도면 생성 없이 가져온 파일로 제작**합니다. 현재 지원 형식과 보류 항목은 [파일 기반 제작 기준](IMPORT_WORKFLOW.md)이 기존 CAD 확장 기획보다 우선합니다.
+2026-10-30 범위: Arch-Studio와 중복되는 설계는 참고하고, **도면 생성 없이 가져온 파일로 제작**합니다. 현재 지원 형식과 보류 항목은 [파일 기반 제작 기준](docs/architecture/IMPORT_WORKFLOW.md)이 기존 CAD 확장 기획보다 우선합니다.
 
 웹 제작기는 `http://127.0.0.1:4101/websites`에서 사용합니다. 브랜드 정보·참고 URL·서비스·색상·공유 대표 이미지를 입력하면 랜딩 템플릿에 반영됩니다. 저장·수정·재열기와 저장된 페이지 미리보기를 지원하며 데이터는 `.local-data/websites/`에 저장합니다. 일반 참고 URL은 자료로 저장합니다. Awwwards 검색 결과를 선택한 경우 제목·분류를 읽어 자체 디자인 방향에 매핑하며 전체 사이트를 복제·분석하지 않습니다.
 
-### 웹 페이지 편집·HTML 내보내기
+### 웹 페이지 편집·사이트 내보내기
 
 1. `/websites`에서 프로젝트를 만들거나 저장된 프로젝트를 엽니다.
 2. 첫 화면 아래의 소개·서비스·문의 섹션을 켜거나 끄고 위·아래 버튼으로 순서를 조정합니다. 소개·문의 문구와 문의 URL도 수정할 수 있습니다.
-3. 미리보기를 확인한 뒤 프로젝트를 저장합니다. 변경 사항이 남아 있으면 내보내기 버튼은 비활성화됩니다.
-4. `HTML 파일 내보내기`를 누르면 CSS와 대표 이미지가 포함된 단일 `.html` 파일을 내려받습니다. 이 파일은 서버 없이 브라우저에서 열 수 있습니다.
+3. 필요하면 홈 외에 최대 12개 페이지를 추가합니다. 페이지별 이름·주소·제목·소개·섹션 표시와 순서를 편집할 수 있습니다.
+4. `이 페이지의 상세 문구를 별도로 편집`을 켜면 소개·서비스·문의·버튼 문구를 독립적으로 설정합니다. 끄면 홈의 최신 내용을 따릅니다. 디자인과 대표 이미지는 공통입니다.
+5. 미리보기를 확인한 뒤 프로젝트를 저장합니다. 변경 사항이 남아 있으면 내보내기 버튼은 비활성화됩니다.
+6. 단일 페이지는 CSS·대표 이미지가 포함된 HTML, 다중 페이지는 `index.html`·추가 페이지 HTML·안내 파일이 포함된 ZIP으로 내려받습니다. 압축을 풀고 `index.html`을 열면 상대 링크로 페이지를 이동할 수 있습니다.
 
 내보내기는 저장된 버전을 사용합니다. 문의 URL은 외부 페이지 연결이며 폼 전송·메일 발송·자동 배포는 포함하지 않습니다. 기존 웹 프로젝트는 원래 서비스 섹션 구성을 유지하며 새 섹션을 직접 활성화할 수 있습니다.
 
@@ -38,13 +52,13 @@
 
 | 작업 공간 | 현재 구현 | 다음 기획 |
 | --- | --- | --- |
-| 웹사이트 | `/websites` 브랜드 입력·저장·섹션 편집·반응형 미리보기·HTML 출력, `/showcase` 모션 데모 | 벤치마크 URL·캡처와 브랜드 정보 분석 → 반응형 페이지 생성 → 편집·배포 |
+| 웹사이트 | `/websites` 브랜드·다중 페이지·독립 콘텐츠 편집, 저장·반응형 미리보기, HTML·사이트 ZIP 출력 | 벤치마크 분석·AI 생성, 자유 배치, 실제 문의 전송·배포 |
 | 3D 공간 | R3F 사진 갤러리, GLB 건축 모델 미리보기·라이브러리 | 공간·객체 편집, CAD 파생 모델과 메타데이터 연계 |
-| 영상 | 사진·로고 15초 자동 인트로, 세부 편집, 서버 MP4 렌더 | 랭킹 쇼츠, 자동 자막, 제품 비교 |
+| 영상 | 사진·로고 15초 인트로, 모션 13종, 랭킹·자막 배치·제품 비교 템플릿 9종, 서버 MP4 렌더 | 음성 인식·자막 시간 편집·대량 렌더 운영 |
 
 첫 제작 흐름은 **사진 6~36장 선택 → 로고 선택 → 선택 브랜드명 입력 → 프로젝트 저장 → 렌더 → 결과 검수·다운로드**입니다. 기본 출력은 1920×1080, 30fps, 15초(450프레임), H.264 MP4이며 로고·브랜드 엔딩은 11.8~15초에 나타납니다. 음악은 선택 사항입니다.
 
-개발 순서는 기획·입력 계약 → 화면 설계 → 공통 에셋·프로젝트 기반 → 모듈 구현 → 타입·계약·브라우저·영상 검증 → 문서·배포 검토입니다. 웹사이트 생성기, 외부 AI·음성인식, 계정·결제·클라우드 큐는 후속 범위입니다. 건축 확장은 Rhino·Grasshopper/Fusion 제작 → 모델 검증·변환 → R3F 웹 뷰어 → Unity/Unreal 체험을 계획하며, 현재 CAD 도구 연결이나 자동 모델링은 구현하지 않았습니다.
+개발 순서는 기획·입력 계약 → 화면 설계 → 공통 에셋·프로젝트 기반 → 모듈 구현 → 타입·계약·브라우저·영상 검증 → 문서·배포 검토입니다. 현재는 웹사이트 제작기를 우선 고도화합니다. 로컬 로그인은 구현돼 있으며 계정별 데이터 분리·팀·결제·클라우드 큐는 후속 범위입니다. 블로그 AI 호출 코드는 구현했지만 실제 API 호출 검증은 남아 있습니다. 음성 인식·CAD 도구 연결·자동 모델링도 미구현입니다. 새 CAD 설계·법규 엔진은 현재 개발 범위에서 제외하며, [파일 기반 제작 기준](docs/architecture/IMPORT_WORKFLOW.md)을 우선합니다.
 
 ## 디자인과 화면 구성
 
@@ -60,11 +74,11 @@
 
 ![Motion Studio 대시보드 디자인](design/motion-studio-dashboard.png)
 
-디자인 원본: [화면 리뷰](design/dashboard.html), [빠른 생성 화면](design/motion-studio-quick-create.png), [모바일 화면](design/motion-studio-mobile.png), [상세 디자인 명세](DESIGN.md).
+디자인 원본: [화면 리뷰](design/dashboard.html), [빠른 생성 화면](design/motion-studio-quick-create.png), [모바일 화면](design/motion-studio-mobile.png), [상세 디자인 명세](docs/design/DESIGN.md).
 
 ## 프로그램 구조도
 
-SVG의 래스터 출력은 웹·데스크톱 공통으로 Rust **resvg**를 사용하도록 기획했습니다. PNG 다운로드·썸네일·텍스처·영상 합성용 정적 이미지가 필요할 때 적용하고 벡터 원본은 보존합니다. 블로그 스킨 PNG 출력에 연결했으며 일반 SVG 업로드와 데스크톱 어댑터는 후속 범위입니다. 상세 계약은 [SVG 래스터화 기획](RASTERIZATION_SPEC.md)을 참고하세요.
+SVG의 래스터 출력은 웹·데스크톱 공통으로 Rust **resvg**를 사용하도록 기획했습니다. PNG 다운로드·썸네일·텍스처·영상 합성용 정적 이미지가 필요할 때 적용하고 벡터 원본은 보존합니다. 블로그 스킨 PNG 출력에 연결했으며 일반 SVG 업로드와 데스크톱 어댑터는 후속 범위입니다. 상세 계약은 [SVG 래스터화 기획](docs/architecture/RASTERIZATION_SPEC.md)을 참고하세요.
 
 ```mermaid
 flowchart TB
@@ -85,13 +99,14 @@ flowchart TB
   Render --> Disk
   Motion[공통 모션 · 카메라 · 레이아웃] --> Gallery
   Motion --> Remotion
-  UI -. 확장 기획 .-> Future[웹 생성기 · 자막 · 랭킹 · CAD 연계]
+  UI -. 확장 기획 .-> Future[벤치마크 분석 · 음성 인식 · 배포 · 에셋 연계]
 ```
 
 웹 프리뷰의 시간 제어는 GSAP, 영상은 Remotion의 frame/fps를 사용합니다. 렌더 API와 빠른 생성 API는 공통 작업 관리기를 사용하며, 제출 당시의 설정과 에셋을 복사해 결과의 재현성을 유지합니다.
 
 ```text
 Motion-Studio/
+├─ docs/             # 종류별 기획·설계·기능 안내·개발 현황·참고 문서
 ├─ app/              # 페이지와 API 라우트
 ├─ components/       # 대시보드·빠른 생성·웹/3D 프리뷰·공통 씬
 ├─ lib/              # 프로젝트 스키마·템플릿·모션 계산
@@ -106,7 +121,7 @@ Motion-Studio/
 └─ compose.yaml      # Docker 실행·데이터 볼륨
 ```
 
-상세 구조도: [플랫폼 구조](ARCHITECTURE.md), [플랫폼 SVG](public/architecture.svg), [건축 시스템 계획](public/architectural-system.svg), [건축 개발주기](public/architectural-lifecycle.svg).
+상세 구조도: [플랫폼 구조](docs/architecture/ARCHITECTURE.md), [플랫폼 SVG](public/architecture.svg), [건축 시스템 계획](public/architectural-system.svg), [건축 개발주기](public/architectural-lifecycle.svg).
 
 ## 실행
 
@@ -150,7 +165,7 @@ npm run dev -- -p 4101 -H 0.0.0.0
 npm run start -- -p 4101 -H 0.0.0.0
 ```
 
-같은 네트워크에 연결되어 있어야 하며 Windows 방화벽의 해당 포트 허용이 필요할 수 있습니다. 현재 앱은 인증이 없는 로컬 제작 도구이므로 신뢰하는 내부망에서 사용합니다. Docker 기본 포트는 루프백에만 연결되어 다른 기기에서 접근할 수 없습니다. 아래 주소들은 실행 설정이며 서버가 상시 실행 중임을 의미하지 않습니다.
+같은 네트워크에 연결되어 있어야 하며 Windows 방화벽의 해당 포트 허용이 필요할 수 있습니다. 로컬 로그인과 운영자 접수 조회 제한은 구현돼 있지만 제작 자료의 계정별 격리는 아직 없어 신뢰하는 내부망에서 사용합니다. Docker 기본 포트는 루프백에만 연결되어 다른 기기에서 접근할 수 없습니다. 아래 주소들은 실행 설정이며 서버가 상시 실행 중임을 의미하지 않습니다. Docker 컨테이너 실행은 별도 재검증이 필요합니다.
 
 프로덕션 모드:
 
@@ -196,11 +211,13 @@ docker compose logs -f motion-studio
 - 공유 R3F 씬, GSAP 재생·스크럽·반복, 배경·타일·로고·타이틀·음악 설정.
 - 빠른 15초 자동 생성, 버전 있는 템플릿 카탈로그.
 - 설정과 파일 사본에 고정된 Node 렌더 작업, 진행률·취소·재시도·다운로드.
-- 웹사이트 제작기 `/websites`: 브랜드 브리프·참고 URL·공유 이미지로 랜딩 템플릿을 구성하고 저장·재열기·미리보기. 섹션 표시·순서·문구 편집과 단일 HTML 출력을 지원하며 URL 자동 분석·AI 생성·자동 배포는 미구현. `/showcase`는 별도 GSAP 모션 데모.
+- 웹사이트 제작기 `/websites`: 브랜드 브리프·참고 URL·공유 이미지, 홈과 추가 페이지 최대 12개를 저장·재열기·미리보기. 페이지별 섹션 표시·순서·상세 문구와 HTML·사이트 ZIP 출력을 지원합니다. URL 자동 분석·AI 생성·자동 배포는 미구현입니다. `/showcase`는 별도 GSAP 모션 데모.
+- 랭킹·자막 배치·제품 비교 템플릿 각 3종: 입력·저장·미리보기·MP4 출력. 자막은 입력 문장 배치이며 음성 전사는 미연결입니다.
+- 로컬 회원가입·로그인·로그아웃, 제작 기본 설정·앱 테마, 고객 요구사항 진단·접수·운영자 조회·CSV 출력.
 - 건축 뷰어의 GLB 2.0 미리보기·프로젝트 모델 라이브러리 등록·재열기 API.
 - SVG·Mermaid 구조도와 디자인 리뷰 자료.
 
-랭킹 쇼츠·자동 자막·제품 비교는 확장 계약과 카탈로그만 준비되어 있습니다. 외부 AI, 계정·결제, 클라우드 큐는 연결하지 않았습니다. 웹 랜딩과 3D 갤러리는 범용 편집기가 아닌 첫 프리뷰입니다.
+실제 다중 사용자 SaaS 운영, 결제·클라우드 큐·자동 배포는 후속 단계입니다. 블로그 AI는 규칙 기반 초안과 선택형 API 호출 경로를 제공하며 실제 호출은 미검증입니다. 3D는 GLB 뷰어·라이브러리 MVP이며 공간 제작 편집기는 후속 범위입니다.
 
 ## 자료·출력
 
@@ -228,56 +245,57 @@ npm test
 npm run build
 ```
 
-브라우저·API·렌더 검증 스크립트는 `scripts/verify-*.cjs`에 있습니다. 이 스크립트 일부는 QA 에셋·프로젝트·작업을 생성하므로 일반 단위 테스트와 구분합니다. `npm test`는 데이터 생성 없이 씬·스키마·15초 템플릿 계약을 검사합니다. ESLint는 아직 구성되지 않았습니다.
+브라우저·API·렌더 검증 스크립트는 `scripts/verify-*.cjs`에 있습니다. 이 스크립트 일부는 QA 에셋·프로젝트·작업을 생성합니다. `npm test`는 씬·스키마·템플릿·다중 페이지·ZIP 출력·고객 진단·블로그 기획 등의 계약을 검사하며 일부 테스트는 `out/qa/`에 결과 파일을 씁니다. ESLint는 아직 구성되지 않았습니다. 최근 다중 페이지·독립 콘텐츠 변경은 전체 테스트·타입 검사·프로덕션 빌드를 통과했으며 실제 브라우저 조작 검증은 남아 있습니다.
 
 ## 기획·설계
 
-- [플랫폼 기획](PLATFORM_PLAN.md)
-- [구조도·모듈 경계](ARCHITECTURE.md)
-- [디자인 명세](DESIGN.md)
+- [플랫폼 기획](docs/product/PLATFORM_PLAN.md)
+- [구조도·모듈 경계](docs/architecture/ARCHITECTURE.md)
+- [디자인 명세](docs/design/DESIGN.md)
 - [디자인 리뷰](design/dashboard.html)
-- [경쟁 서비스 벤치마킹](BENCHMARK.md)
-- [요구사항·변경 기록](PRD.md)
-- [구현·검증 상태](IMPLEMENTATION_STATUS.md)
+- [경쟁 서비스 벤치마킹](docs/references/BENCHMARK.md)
+- [요구사항·변경 기록](docs/product/PRD.md)
+- [구현·검증 상태](docs/development/IMPLEMENTATION_STATUS.md)
+- [연관·참고 저장소](docs/references/REFERENCE_REPOSITORIES.md)
 
 ## AI 건축 확장 기획
 
-[건축 제품 기획](ARCHITECTURAL_STUDIO_PLAN.md)과 상세 명세 9개를 제공합니다. 전체 개발주기·플랫폼 구조와 건축 전용 트랙은 `/architecture#cad-lifecycle`, `/architecture#cad-system`에서 볼 수 있습니다. GLB 미리보기·모델 라이브러리는 MVP로 구현했으며, CAD 자동 모델링과 외부 제작 도구·Unity·Unreal 연결은 기획 단계입니다.
+[건축 제품 기획](docs/architecture/3d/ARCHITECTURAL_STUDIO_PLAN.md)과 상세 명세 9개를 제공합니다. 전체 개발주기·플랫폼 구조와 건축 전용 트랙은 `/architecture#cad-lifecycle`, `/architecture#cad-system`에서 볼 수 있습니다. GLB 미리보기·모델 라이브러리는 MVP로 구현했으며, CAD 자동 모델링과 외부 제작 도구·Unity·Unreal 연결은 기획 단계입니다.
 
 | 상세 명세 | 내용 |
 | --- | --- |
-| [개발주기](DEVELOPMENT_LIFECYCLE.md) | 단계별 산출물과 검증 |
-| [CAD 모델링](CAD_MODELING_SPEC.md) | 모델 작성 기준 |
-| [파라메트릭 명세](PARAMETRIC_SPEC.md) | 치수·단위·파라미터 |
-| [에셋 파이프라인](ASSET_PIPELINE.md) | 원본·변환·파생 자산 |
-| [씬 그래프](SCENE_GRAPH.md) | 객체·층·메타데이터 구조 |
-| [인터랙션](INTERACTION_SPEC.md) | 뷰어 조작과 상태 |
-| [렌더링 전략](RENDERING_STRATEGY.md) | 엔진별 출력 방향 |
-| [성능 예산](PERFORMANCE_BUDGET.md) | 자산·실행 성능 기준 |
-| [CAD 검증](CAD_VALIDATION.md) | 치수·형상·출력 검증 |
+| [개발주기](docs/development/DEVELOPMENT_LIFECYCLE.md) | 단계별 산출물과 검증 |
+| [CAD 모델링](docs/architecture/3d/CAD_MODELING_SPEC.md) | 모델 작성 기준 |
+| [파라메트릭 명세](docs/architecture/3d/PARAMETRIC_SPEC.md) | 치수·단위·파라미터 |
+| [에셋 파이프라인](docs/architecture/3d/ASSET_PIPELINE.md) | 원본·변환·파생 자산 |
+| [씬 그래프](docs/architecture/3d/SCENE_GRAPH.md) | 객체·층·메타데이터 구조 |
+| [인터랙션](docs/architecture/3d/INTERACTION_SPEC.md) | 뷰어 조작과 상태 |
+| [렌더링 전략](docs/architecture/3d/RENDERING_STRATEGY.md) | 엔진별 출력 방향 |
+| [성능 예산](docs/architecture/3d/PERFORMANCE_BUDGET.md) | 자산·실행 성능 기준 |
+| [CAD 검증](docs/architecture/3d/CAD_VALIDATION.md) | 치수·형상·출력 검증 |
 
-도구 연결 계획은 [MCP 통합](MCP_INTEGRATION.md)을 참고하세요.
+도구 연결 계획은 [MCP 통합](docs/architecture/MCP_INTEGRATION.md)을 참고하세요.
 
 
 
 ### 디자인 모듈 참고 적용
 
-nomad-design-modules의 가이드를 참고해 웹사이트 제작기에 미니멀·퍼블리케이션·포트폴리오 디자인 키트를 추가했습니다. 서체·여백·모서리·첫 화면 모션이 미리보기와 HTML에 함께 적용됩니다. 기존 프로젝트는 이전 디자인을 유지합니다. 출처와 제작기별 적용 범위는 [디자인 모듈 적용 계획](./DESIGN_MODULE_INTEGRATION.md)에 정리했습니다.
+nomad-design-modules의 가이드를 참고해 웹사이트 제작기에 미니멀·퍼블리케이션·포트폴리오 디자인 키트를 추가했습니다. 서체·여백·모서리·첫 화면 모션이 미리보기와 HTML에 함께 적용됩니다. 기존 프로젝트는 이전 디자인을 유지합니다. 출처와 제작기별 적용 범위는 [디자인 모듈 적용 계획](docs/design/DESIGN_MODULE_INTEGRATION.md)에 정리했습니다.
 
 
 ### 랜딩·로그인·제작 유형
 
-로고는 `/` 랜딩으로, 대시보드 메뉴와 로그인 직후 화면은 `/studio?view=dashboard`로 이동합니다. `/login`에서 로컬 계정을 만들거나 로그인하면 상단 오른쪽에 계정 이름과 이메일 메뉴가 표시됩니다. 비밀번호는 scrypt로 해시하고 세션은 HttpOnly 쿠키로 관리합니다. 계정 정보는 `.local-data/accounts`에 저장되며 현재 제작 자료는 계정별 격리 없이 같은 로컬 워크스페이스를 사용합니다. 웹사이트 제작기 `/websites`는 기본형·중급형·고급형 카드로 시작하며 모두 한 페이지 HTML 편집기로 이어집니다.
+로고는 `/` 랜딩으로, 대시보드 메뉴와 로그인 직후 화면은 `/studio?view=dashboard`로 이동합니다. `/login`에서 로컬 계정을 만들거나 로그인하면 상단 오른쪽에 계정 이름과 이메일 메뉴가 표시됩니다. 비밀번호는 scrypt로 해시하고 세션은 HttpOnly 쿠키로 관리합니다. 계정 정보는 `.local-data/accounts`에 저장되며 현재 제작 자료는 계정별 격리 없이 같은 로컬 워크스페이스를 사용합니다. `/websites`의 BASIC·BUSINESS·PREMIUM 카드에서 제작 브리프로 진입하며 다중 페이지 편집기를 사용합니다. 로그인 확장은 현재 우선순위에서 제외합니다.
 
 
 ### BASIC · BUSINESS · PREMIUM 상품화
 
-웹사이트 제작기를 고객 과제에 따른 세 상품으로 개편했습니다. 선택 이유·제안 가격·추가 구축 범위를 비교하고, 등급별 제작 브리프를 입력·저장·JSON으로 출력합니다. 세부 전략과 구현 범위는 [홈페이지 상품 전략](./WEBSITE_SERVICE_PRODUCTS.md)을 참고하세요. 이전 기본형·중급형·고급형 표기는 새 상품명으로 대체합니다.
+웹사이트 제작기를 고객 과제에 따른 세 상품으로 개편했습니다. 선택 이유·제안 가격·추가 구축 범위를 비교하고, 등급별 제작 브리프를 입력·저장·JSON으로 출력합니다. 세부 전략과 구현 범위는 [홈페이지 상품 전략](docs/features/websites/WEBSITE_SERVICE_PRODUCTS.md)을 참고하세요. 이전 기본형·중급형·고급형 표기는 새 상품명으로 대체합니다.
 
 
 ### 고객 개발요구사항 진단·접수
 
-홈페이지 제작기 상단 카드에서 고객 진단 페이지를 열고, 체크한 기능과 목적을 바탕으로 홈페이지 상품·홈페이지형 블로그를 추천합니다. 담당자·회사·전화·이메일과 동의 후 보내면 SQLite DB에 저장됩니다. 로그인한 운영자는 `/requirements-inbox`에서 조회하고 구글시트용 CSV를 받을 수 있습니다. 공개 배포·관리자 설정과 오프라인 파일의 구분은 [접수 운영 안내](./WEBSITE_REQUIREMENTS.md)를 참고하세요.
+홈페이지 제작기 상단 카드에서 고객 진단 페이지를 열고, 체크한 기능과 목적을 바탕으로 홈페이지 상품·홈페이지형 블로그를 추천합니다. 담당자·회사·전화·이메일과 동의 후 보내면 SQLite DB에 저장됩니다. 로그인한 운영자는 `/requirements-inbox`에서 조회하고 구글시트용 CSV를 받을 수 있습니다. 공개 배포·관리자 설정과 오프라인 파일의 구분은 [접수 운영 안내](docs/features/websites/WEBSITE_REQUIREMENTS.md)를 참고하세요.
 
 
 ### 제작 기본 설정
@@ -287,12 +305,12 @@ GNB 하단 설정(`/settings`)에서 영상 기본 해상도·모션 프리셋, 
 
 ### 상품 체계·앱 테마·콘텐츠 템플릿 확장
 
-홈페이지3종과 전문솔루션4종을 분리하고 선택형 기본 계약 범위를 추가했습니다([상품 명세](./WEBSITE_SYSTEM_PRODUCTS.md)). 설정의 라이트·블랙 앱 스킨은 로컬스토리지에 저장하고 즉시 적용·재방문·탭 간 변경을 반영합니다. 고객 홈페이지 테마와는 별개입니다. 모션 프리셋에는 랭킹·자막배치·제품비교 각3종을 편집·저장·렌더 가능한 자체 템플릿으로 추가했습니다([템플릿 명세](./CONTENT_TEMPLATES.md)).
+홈페이지3종과 전문솔루션4종을 분리하고 선택형 기본 계약 범위를 추가했습니다([상품 명세](docs/features/websites/WEBSITE_SYSTEM_PRODUCTS.md)). 설정의 라이트·블랙 앱 스킨은 로컬스토리지에 저장하고 즉시 적용·재방문·탭 간 변경을 반영합니다. 고객 홈페이지 테마와는 별개입니다. 모션 프리셋에는 랭킹·자막배치·제품비교 각3종을 편집·저장·렌더 가능한 자체 템플릿으로 추가했습니다([템플릿 명세](docs/features/video/CONTENT_TEMPLATES.md)).
 
 
 ### 블로그 주소·레퍼런스로 시작하기
 
-블로그 스킨 제작기 상단에서 네이버 주소·레퍼런스URL로 문구·메뉴·스타일과 PNG를 자동 구성합니다. aside를 왼쪽/오른쪽에 선택할 수 있고 클릭 좌표와 설치 패키지에도 반영됩니다. AI 키·모델 미설정 시 규칙 기반 초안임을 표시합니다. 실제 AI 연결과 범위는 [자동기획 안내](./BLOG_AUTOPLAN.md)를 참고하세요.
+블로그 스킨 제작기 상단에서 네이버 주소·레퍼런스URL로 문구·메뉴·스타일과 PNG를 자동 구성합니다. aside를 왼쪽/오른쪽에 선택할 수 있고 클릭 좌표와 설치 패키지에도 반영됩니다. AI 키·모델 미설정 시 규칙 기반 초안임을 표시합니다. 실제 AI 연결과 범위는 [자동기획 안내](docs/features/blog/BLOG_AUTOPLAN.md)를 참고하세요.
 
 
 ## 2026-10-30 다중 페이지 제작 후속 구현

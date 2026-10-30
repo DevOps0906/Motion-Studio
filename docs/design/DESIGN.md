@@ -60,10 +60,10 @@
 
 ## 디자인 산출물
 
-- [대시보드 리뷰](design/dashboard.html)
+- [대시보드 리뷰](../../design/dashboard.html)
 - `design/motion-studio-dashboard.png`
 - `design/motion-studio-quick-create.png`
-- [SVG 구조도](public/architecture.svg)
+- [SVG 구조도](../../public/architecture.svg)
 - `out/qa/motion-*.png` ? 실제 브라우저 캡처.
 
 경쟁사 기능 조사 근거는 BENCHMARK.md다. 화면·브랜드·문구는 이 프로젝트를 위해 별도로 구성했다. 현재 웹·갤러리는 프리뷰이며 세 상품 전체의 완성을 의미하지 않는다.
@@ -75,9 +75,9 @@
 
 ### 디자인 모듈 참고 적용
 
-nomad-design-modules의 가이드를 참고해 웹사이트 제작기에 미니멀·퍼블리케이션·포트폴리오 디자인 키트를 추가했습니다. 서체·여백·모서리·첫 화면 모션이 미리보기와 HTML에 함께 적용됩니다. 기존 프로젝트는 이전 디자인을 유지합니다. 출처와 제작기별 적용 범위는 [디자인 모듈 적용 계획](./DESIGN_MODULE_INTEGRATION.md)에 정리했습니다.
+nomad-design-modules의 가이드를 참고해 웹사이트 제작기에 미니멀·퍼블리케이션·포트폴리오 디자인 키트를 추가했습니다. 서체·여백·모서리·첫 화면 모션이 미리보기와 HTML에 함께 적용됩니다. 기존 프로젝트는 이전 디자인을 유지합니다. 출처와 제작기별 적용 범위는 [디자인 모듈 적용 계획](DESIGN_MODULE_INTEGRATION.md)에 정리했습니다.
 
 
 ### BASIC · BUSINESS · PREMIUM 상품화
 
-웹사이트 제작기를 고객 과제에 따른 세 상품으로 개편했습니다. 선택 이유·제안 가격·추가 구축 범위를 비교하고, 등급별 제작 브리프를 입력·저장·JSON으로 출력합니다. 세부 전략과 구현 범위는 [홈페이지 상품 전략](./WEBSITE_SERVICE_PRODUCTS.md)을 참고하세요. 이전 기본형·중급형·고급형 표기는 새 상품명으로 대체합니다.
+웹사이트 제작기를 고객 과제에 따른 세 상품으로 개편했습니다. 선택 이유·제안 가격·추가 구축 범위를 비교하고, 등급별 제작 브리프를 입력·저장·JSON으로 출력합니다. 세부 전략과 구현 범위는 [홈페이지 상품 전략](../features/websites/WEBSITE_SERVICE_PRODUCTS.md)을 참고하세요. 이전 기본형·중급형·고급형 표기는 새 상품명으로 대체합니다.
