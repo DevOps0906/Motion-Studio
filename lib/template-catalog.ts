@@ -1,11 +1,10 @@
+import {CONTENT_TEMPLATES} from './content-template-data';
 import {DEFAULT_PROJECT,templates,renderResolutions,type Project} from './model';
 export type ContentType='intro'|'ranking-short'|'captioned-video'|'product-comparison';
 export type TemplateDefinition={id:string;version:number;category:ContentType;name:string;description:string;status:'available'|'planned';durationSeconds:number|null;aspectRatio:'16:9'|'9:16';compositionId:string|null;inputs:string[]};
 export const templateCatalog:TemplateDefinition[]=[
  {id:'photo-wall-intro-v1',version:1,category:'intro',name:'15초 포토월 인트로',description:'사진과 로고를 교체하면 완성되는 유튜브 오프닝',status:'available',durationSeconds:15,aspectRatio:'16:9',compositionId:'PhotoWallIntro',inputs:['photos','logo','brandName?']},
- {id:'ranking-short-v1',version:1,category:'ranking-short',name:'랭킹형 쇼츠',description:'순위·사진·설명을 장면별로 구성하는 세로 영상',status:'planned',durationSeconds:null,aspectRatio:'9:16',compositionId:null,inputs:['rankedItems','narration?']},
- {id:'captioned-video-v1',version:1,category:'captioned-video',name:'자동 자막 영상',description:'영상 음성을 분석해 검수 가능한 자막을 생성',status:'planned',durationSeconds:null,aspectRatio:'9:16',compositionId:null,inputs:['video','language','captionStyle']},
- {id:'product-comparison-v1',version:1,category:'product-comparison',name:'제품 비교 영상',description:'제품 사진·동일 기준의 스펙·출처로 만드는 비교 영상',status:'planned',durationSeconds:null,aspectRatio:'16:9',compositionId:null,inputs:['products','comparisonCriteria','sources']}
+ ...CONTENT_TEMPLATES.map(item=>({id:item.id,version:1,category:item.category,name:item.name,description:item.description,status:'available' as const,durationSeconds:15,aspectRatio:item.aspect,compositionId:'PhotoWallIntro',inputs:['photos','creative']}))
 ];
 export type IntroRequest={templateId:string;photoIds:string[];logoAssetId:string;brandName?:string;title?:string;motionPresetId?:Project['template'];resolution?:Project['resolution']};
 export function buildIntroProject(input:IntroRequest):Project{

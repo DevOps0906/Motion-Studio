@@ -35,7 +35,7 @@ async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Pr
   await page.evaluate(()=>{const el=document.querySelector('select[aria-label="출력 해상도"]');el.value='720';el.dispatchEvent(new Event('change',{bubbles:true}));});
   await page.evaluate(()=>Array.from(document.querySelectorAll('.topbar button')).find(b=>b.textContent==='저장').click());
   await wait(async()=>((await json(`/api/projects/${projectId}`)).resolution.height===720));report.resolutionSave=true;
-  await page.goto({url:base+'/websites',timeout:60000});await wait(()=>page.evaluate(()=>!document.querySelector('.website-brief fieldset').disabled));
+  await page.goto({url:base+'/websites/editor/basic',timeout:60000});await wait(()=>page.evaluate(()=>!document.querySelector('.website-brief fieldset').disabled));
   const metadata={brand:'메타데이터 QA',title:'정보 기반 홈페이지 QA',headline:'가져온 정보로 만드는 홈페이지',description:'홈페이지 메타데이터에서 가져온 회사 소개입니다.',services:['웹 제작','영상 제작'],contactUrl:'https://example.com/contact'};
   await page.evaluate(data=>{const file=new File([JSON.stringify(data)],'homepage.json',{type:'application/json'}),transfer=new DataTransfer();transfer.items.add(file);const input=document.querySelector('.website-metadata-input');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));},metadata);
   await wait(()=>page.evaluate(()=>document.querySelector('.website-brief input[name=brand]').value==='메타데이터 QA'));

@@ -1,9 +1,13 @@
 'use client';
+import {loadProductionSettings} from '../lib/production-settings';
+import {WEBSITE_DESIGN_KITS} from '../lib/website';
+import {WEBSITE_TYPES,websiteTypeBrief,type WebsiteType} from '../lib/website-types';
 
 import {useEffect, useState, useRef, type FormEvent} from 'react';
 import {EMPTY_WEBSITE, WEBSITE_SECTION_LABELS, validateWebsiteBrief, safeWebsiteLink, type WebsiteBrief, type WebsiteProject} from '../lib/website';
 import type {MediaAsset} from '../lib/model';
 import WebsitePreview from './WebsitePreview';
+import WebsiteProductionForm from './WebsiteProductionForm';
 import WebsiteReferencePicker from './WebsiteReferencePicker';
 import {referenceDesign,type ReferenceCard} from '../lib/website-references';
 import {importWebsiteMetadata} from '../lib/website-metadata';
@@ -15,8 +19,8 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export default function WebsiteBuilder() {
-  const [brief, setBrief] = useState<WebsiteBrief>({...EMPTY_WEBSITE});
+export default function WebsiteBuilder({initialType='basic'}:{initialType?:WebsiteType}) {
+  const [brief, setBrief] = useState<WebsiteBrief>(()=>websiteTypeBrief(initialType));
   const [projects, setProjects] = useState<WebsiteProject[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -26,6 +30,7 @@ export default function WebsiteBuilder() {
   const [notice, setNotice] = useState(''), [mediaError, setMediaError] = useState('');
   const [previewWidth, setPreviewWidth] = useState<'desktop' | 'mobile'>('desktop');
   const busy = loading || saving || exporting;
+  const activeType=brief.productionBrief?.tier||initialType;
   const metadataInput=useRef<HTMLInputElement>(null);
   function chooseReference(card:Pick<ReferenceCard,'title'|'url'|'tags'>){
     const designPreset=referenceDesign(card.tags,card.title);
@@ -48,7 +53,7 @@ export default function WebsiteBuilder() {
     else setMediaError('사진 목록을 불러오지 못했습니다. 이미지 없이도 제작할 수 있습니다.');
     setLoading(false);
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {const settings=loadProductionSettings();setBrief(current=>({...current,theme:settings.websiteTheme,accent:settings.websiteAccent}));void load();}, []);
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
@@ -61,7 +66,7 @@ export default function WebsiteBuilder() {
   }
   function open(project?: WebsiteProject) {
     if (dirty && !window.confirm('저장하지 않은 변경을 버리고 이동할까요?')) return;
-    setBrief(project ? {...project, services: [...project.services]} : {...EMPTY_WEBSITE, services: [...EMPTY_WEBSITE.services]});
+    setBrief(project ? {...project, services: [...project.services]} : {...websiteTypeBrief(initialType),theme:loadProductionSettings().websiteTheme,accent:loadProductionSettings().websiteAccent});
     setSelectedId(project?.id ?? ''); setDirty(false); setError(''); setNotice(project ? '저장된 프로젝트를 열었습니다.' : '새 프로젝트를 시작합니다.');
   }
   function moveSection(index: number, offset: number) {
@@ -103,9 +108,10 @@ export default function WebsiteBuilder() {
   }
 
   return <main className="website-builder">
-    <header className="website-builder-header"><div><div className="eyebrow">MOTION STUDIO / WEBSITE</div><h1>브랜드의 첫 페이지를 만드세요.</h1><p>브랜드 정보를 입력하고 랜딩 페이지를 저장·미리보기 합니다.</p></div><a className="button" href="/studio">← 대시보드</a></header>
+    <header className="website-builder-header"><div><div className="eyebrow">MOTION STUDIO / WEBSITE</div><h1>{WEBSITE_TYPES[activeType].title}</h1><p>브랜드 정보를 입력하고 랜딩 페이지를 저장·미리보기 합니다.</p></div><a className="button" href="/websites">제작 유형 선택</a></header>
     <div className="website-scope-note">메타데이터로 홈페이지 내용을 채우고 레퍼런스의 분류에 맞춰 디자인을 구성합니다. 원본 사이트의 코드·문구·이미지는 복제하지 않으며 자동 배포는 포함하지 않습니다.</div>
-    <div className="website-builder-grid">
+    <WebsiteProductionForm brief={brief} tier={activeType} onChange={value=>{setBrief(value);setDirty(true);}} onApply={()=>{setNotice('제작 기획을 반영했습니다. 편집 내용을 확인한 뒤 저장해 주세요.');document.getElementById('website-editor-fields')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}}/>
+    <div className="website-builder-grid" id="website-editor-fields">
       <aside className="website-project-list panel"><div className="section-head"><h2>웹 프로젝트</h2><button disabled={busy} onClick={() => open()}>＋ 새로 만들기</button></div>
         {loading ? <p role="status">목록을 불러오는 중…</p> : projects.length === 0 ? <p>아직 저장한 웹 프로젝트가 없습니다. 오른쪽에서 첫 페이지를 만들어 보세요.</p> :
           <ul>{projects.map(project => <li key={project.id}><button className={selectedId === project.id ? 'website-project-active' : ''} aria-pressed={selectedId === project.id} disabled={busy} onClick={() => open(project)}><strong>{project.title}</strong><small>{project.brand} · {new Date(project.updatedAt).toLocaleDateString('ko-KR')}</small></button></li>)}</ul>}
@@ -125,6 +131,8 @@ export default function WebsiteBuilder() {
           <label>참고 사이트 URL · 선택<input type="url" maxLength={2000} value={brief.referenceUrl} placeholder="https://example.com" onChange={e => edit('referenceUrl', e.target.value)}/></label>
           {brief.referenceTitle&&<p className="small">선택한 레퍼런스: {brief.referenceTitle}</p>}
           <label>디자인 방향<select aria-label="디자인 방향" value={brief.designPreset} onChange={e=>edit('designPreset',e.target.value as WebsiteBrief['designPreset'])}><option value="studio">프리미엄 스튜디오</option><option value="editorial">에디토리얼 · 건축/브랜드</option><option value="gallery">갤러리 · 포트폴리오</option></select></label>
+          <label>디자인 키트<select aria-label="디자인 키트" value={brief.designKit || 'original'} onChange={e=>edit('designKit',e.target.value as WebsiteBrief['designKit'])}>{Object.entries(WEBSITE_DESIGN_KITS).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+          <p className="small">서체·여백·모서리·첫 화면 모션을 함께 적용합니다. 브랜드 내용과 레이아웃은 유지됩니다.</p>
           <label>서비스 · 한 줄에 하나, 최대 6개<textarea rows={4} value={brief.services.join('\n')} onChange={e => edit('services', e.target.value.split('\n'))}/></label>
           <label>버튼 문구<input required maxLength={40} value={brief.ctaLabel} onChange={e => edit('ctaLabel', e.target.value)}/></label>
           <div className="website-brief-colors"><label>강조색<input type="color" value={brief.accent} onChange={e => edit('accent', e.target.value)}/></label><label>테마<select value={brief.theme} onChange={e => edit('theme', e.target.value as WebsiteBrief['theme'])}><option value="dark">다크</option><option value="light">라이트</option></select></label></div>

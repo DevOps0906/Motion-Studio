@@ -1,9 +1,11 @@
 "use client";
+import {loadProductionSettings} from '../lib/production-settings';
 import {useState,useEffect,useRef,type KeyboardEvent} from 'react';
 import {templates,renderResolutions,type MediaAsset,type Project} from '../lib/model';
 export default function QuickCreate({media,initialPhotoIds,close}:{media:MediaAsset[];initialPhotoIds:string[];close:()=>void}){
  const [assets,setAssets]=useState(media),[photos,setPhotos]=useState<string[]>(initialPhotoIds.length?initialPhotoIds.slice(0,36):media.filter(m=>m.role==='derived-photo').slice(0,36).map(m=>m.id)),[logo,setLogo]=useState(media.find(m=>m.name.startsWith('예제 로고'))?.id??''),[brand,setBrand]=useState(''),[busy,setBusy]=useState(''),[error,setError]=useState(''),[createdId,setCreatedId]=useState('');
  const [motionPresetId,setMotionPresetId]=useState<Project['template']>('mosaic'),[resolutionId,setResolutionId]=useState('1080p');const output=renderResolutions.find(r=>r.id===resolutionId)!;
+ useEffect(()=>{const settings=loadProductionSettings();setResolutionId(settings.videoResolution);setMotionPresetId(settings.videoPreset);},[]);
  const panel=useRef<HTMLDivElement>(null),photoInput=useRef<HTMLInputElement>(null),logoInput=useRef<HTMLInputElement>(null),priorFocus=useRef<HTMLElement|null>(null);
  useEffect(()=>{priorFocus.current=document.activeElement as HTMLElement;const oldOverflow=document.body.style.overflow;document.body.style.overflow='hidden';panel.current?.querySelector<HTMLButtonElement>('button')?.focus();return ()=>{document.body.style.overflow=oldOverflow;priorFocus.current?.focus();};},[]);
  const images=assets.filter(m=>m.type==='image'&&m.role!=='source-capture');const logoAsset=assets.find(m=>m.id===logo);

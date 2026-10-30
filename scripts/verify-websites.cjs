@@ -48,7 +48,7 @@ async function wait(check) {
     const logs = [];
     const page = await browser.newPage({context: () => null, logLevel: 'error', indent: false, pageIndex: 0, onBrowserLog: log => logs.push(log), onLog: () => {}});
     await page.setViewport({width: 1600, height: 1000, deviceScaleFactor: 1, isMobile: false, hasTouch: false});
-    await page.goto({url: base + '/websites', timeout: 60000});
+    await page.goto({url: base + '/websites/editor/basic', timeout: 60000});
     await wait(() => page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).some(b => b.textContent.includes(name)), title));
     await page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).find(b => b.textContent.includes(name)).click(), title);
     await wait(() => page.evaluate(() => document.querySelector('.website-brief input[name=title]').value.startsWith('Website QA')));
@@ -75,7 +75,7 @@ async function wait(check) {
     await page.goto({url: `${base}/websites/${id}`, timeout: 60000});
     assert.equal(await page.evaluate(() => document.querySelector('.website-preview h1').textContent), 'Updated from the editor');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    await page.goto({url: base + '/websites', timeout: 60000});
+    await page.goto({url: base + '/websites/editor/basic', timeout: 60000});
     await wait(() => page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).some(b => b.textContent.includes(name)), title));
     await page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).find(b => b.textContent.includes(name)).click(), title);
     await wait(() => page.evaluate(() => document.querySelector('.website-preview h1').textContent === 'Updated from the editor'));

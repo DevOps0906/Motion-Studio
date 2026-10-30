@@ -2,7 +2,7 @@
 import {usePathname,useSearchParams} from 'next/navigation';
 const groups = [
   {label:'워크스페이스',items:[
-    {href:'/studio',label:'대시보드',icon:'▦',view:'dashboard'},
+    {href:'/studio?view=dashboard',label:'대시보드',icon:'▦',view:'dashboard'},
     {href:'/studio?view=projects',label:'영상 프로젝트',icon:'▣',view:'projects'},
     {href:'/studio?view=media',label:'미디어 라이브러리',icon:'▧',view:'media'},
     {href:'/studio?view=templates',label:'모션 프리셋',icon:'◇',view:'templates'},
@@ -29,8 +29,8 @@ export default function GlobalNavigation(){
     if(item.href==='/architecture')return path==='/architecture';
     return path===item.href||path.startsWith(item.href+'/');
   }
-  return <aside className="app-gnb"><a className="brand" href="/studio" aria-label="Motion Studio 대시보드"><span className="brandmark" aria-hidden="true"><i/><i/><i/><i/></span><span className="gnb-brand-text">MOTION<small>STUDIO</small></span></a>
+  return <aside className="app-gnb"><a className="brand" href="/" aria-label="Motion Studio 랜딩페이지"><span className="brandmark" aria-hidden="true"><i/><i/><i/><i/></span><span className="gnb-brand-text">MOTION<small>STUDIO</small></span></a>
     <nav aria-label="전체 메뉴">{groups.map(group=><div className="gnb-group" key={group.label}><div className="gnb-group-label">{group.label}</div>{group.items.map(item=><a key={item.href} href={item.href} aria-label={item.label} title={item.label} aria-current={active(item)?'page':undefined}><span className="gnb-icon" aria-hidden="true">{item.icon}</span><span className="gnb-item-label">{item.label}</span></a>)}</div>)}</nav>
-    <div className="gnb-local"><span className="dot"/><span>이 PC의 제작 도구</span><p>사진·프로젝트를 로컬에 저장합니다.</p></div>
+    <div className="gnb-footer"><a className="gnb-settings" href="/settings" aria-label="설정" title="제작 설정" aria-current={path==='/settings'?'page':undefined}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M9 3h6l.7 2.7 2.6 1 2.4 1.8-2 4 .3 2.7-2 3-2.8-.1L12 21l-2.2-2.9-2.8.1-2-3 .3-2.7-2-4 2.4-1.8 2.6-1L9 3Z"/><circle cx="12" cy="12" r="3"/></svg><span className="gnb-item-label">설정</span></a><div className="gnb-local"><span className="dot"/><span>이 PC의 제작 도구</span><p>사진·프로젝트를 로컬에 저장합니다.</p></div></div>
   </aside>;
 }

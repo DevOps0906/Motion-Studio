@@ -22,6 +22,20 @@ async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Pr
  const logs=[],page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:log=>logs.push(log),onLog:()=>{}});
  await page.setViewport({width:1440,height:1050,deviceScaleFactor:1,isMobile:false,hasTouch:false});await page.goto({url:base+'/blog-skins',timeout:60000});await wait(()=>page.evaluate(()=>!document.querySelector('.blog-skin-form fieldset').disabled));
  assert.equal(await page.evaluate(()=>document.querySelectorAll('.app-gnb').length),1);assert.ok(await page.evaluate(()=>Boolean(document.querySelector('.maker-reference-bar'))));
+
+ assert.equal(await page.evaluate(()=>document.querySelectorAll('[data-selected-image]').length),0);
+ await page.evaluate(id=>{const select=document.querySelector('select[aria-label="저장한 스킨"]');select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));},saved.id);
+ await wait(()=>page.evaluate(()=>Array.from(document.querySelectorAll('[data-selected-image] img')).length===2&&Array.from(document.querySelectorAll('[data-selected-image] img')).every(img=>img.complete&&img.naturalWidth>0)));
+ assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('[data-selected-image=logo] img')).objectFit),'contain');
+ let thumbShot=await page._client().send('Page.captureScreenshot',{format:'png'});await fs.writeFile('out/qa/blog-selected-images-desktop.png',Buffer.from(thumbShot.value.data,'base64'));
+ await page.setViewport({width:390,height:844,deviceScaleFactor:1,isMobile:true,hasTouch:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.evaluate(()=>document.querySelector('[data-selected-image=logo]').scrollIntoView());thumbShot=await page._client().send('Page.captureScreenshot',{format:'png'});await fs.writeFile('out/qa/blog-selected-images-mobile.png',Buffer.from(thumbShot.value.data,'base64'));
+ await page.setViewport({width:1440,height:1050,deviceScaleFactor:1,isMobile:false,hasTouch:false});
+ await page.evaluate(()=>{const select=document.querySelector('select[aria-label="브랜드 로고"]');select.value='';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ await wait(()=>page.evaluate(()=>!document.querySelector('[data-selected-image=logo]')&&Boolean(document.querySelector('[data-selected-image=hero] img'))));
+ await page.evaluate(()=>{const select=document.querySelector('select[aria-label="대표 이미지"]');select.value='';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ await wait(()=>page.evaluate(()=>document.querySelectorAll('[data-selected-image]').length===0));
+ await page.evaluate(()=>{window.confirm=()=>true;document.querySelector('.blog-skin-form .section-head button').click();});
  const brand='IMPORTED BLOG '+randomUUID();
  await page.evaluate(name=>{const file=new File([JSON.stringify({brand:name,description:'브랜드 정보에서 만든 블로그 소개',headline:'새로운 홈페이지형 블로그',services:['웹','영상'],contactUrl:'https://example.com/contact'})],'brand.json',{type:'application/json'}),transfer=new DataTransfer();transfer.items.add(file);const input=document.querySelector('.blog-metadata-input');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));},brand);
  await wait(()=>page.evaluate(name=>document.querySelector('input[name=blogBrand]').value===name,brand));
@@ -44,7 +58,7 @@ async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Pr
  await wait(()=>page.evaluate(name=>document.querySelector('input[name=blogBrand]').value===name,brand));
  await page.setViewport({width:390,height:844,deviceScaleFactor:1,isMobile:true,hasTouch:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  shot=await page._client().send('Page.captureScreenshot',{format:'png'});await fs.writeFile('out/qa/blog-builder-mobile.png',Buffer.from(shot.value.data,'base64'));
- await fs.writeFile('out/qa/blog-skin-result.json',JSON.stringify({apiSave:true,uiImport:true,uiSave:true,reopen:true,resvgPreview:true,embeddedImages:true,transparentAlpha:true,widgets:true,uiZipDownload:true,imageProtection:true,mobileOverflow:false,naverAccountInstallation:false,logs},null,2));
+ await fs.writeFile('out/qa/blog-skin-result.json',JSON.stringify({apiSave:true,selectedImagePreviews:true,logoContain:true,clearPreviews:true,uiImport:true,uiSave:true,reopen:true,resvgPreview:true,embeddedImages:true,transparentAlpha:true,widgets:true,uiZipDownload:true,imageProtection:true,mobileOverflow:false,naverAccountInstallation:false,logs},null,2));
  console.log('PASS: blog metadata import/save/reopen, resvg preview with images, transparent widgets, coordinates, actual ZIP download, image protection and desktop/mobile layout');
  }finally{if(browser)await browser.close({silent:true});for(const id of ids){assert.match(id,/^[a-zA-Z0-9-]+$/);await fs.unlink(path.join('.local-data','blog-skins',id+'.json'));}if(assetId)await json('/api/media/'+assetId,{method:'DELETE'});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

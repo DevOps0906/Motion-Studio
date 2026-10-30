@@ -37,7 +37,7 @@ async function wait(check) {
     const logs = [];
     const page = await browser.newPage({context: () => null, logLevel: 'error', indent: false, pageIndex: 0, onBrowserLog: log => logs.push(log), onLog: () => {}});
     await page.setViewport({width: 1440, height: 1000, deviceScaleFactor: 1, isMobile: false, hasTouch: false});
-    await page.goto({url: base + '/websites', timeout: 60000});
+    await page.goto({url: base + '/websites/editor/basic', timeout: 60000});
     await wait(() => page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).some(b => b.textContent.includes(name)), title));
     await page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).find(b => b.textContent.includes(name)).click(), title);
     await wait(() => page.evaluate(() => document.querySelectorAll('[data-website-section]').length === 3));
@@ -68,7 +68,7 @@ async function wait(check) {
     await wait(async () => {try { return (await fs.readFile(downloadedFile, 'utf8')) === html; } catch { return false; }});
     await wait(() => page.evaluate(() => !document.querySelector('.website-export-button').disabled));
     // Reload and reopen to confirm persisted order and visibility.
-    await page.goto({url: base + '/websites', timeout: 60000});
+    await page.goto({url: base + '/websites/editor/basic', timeout: 60000});
     await wait(() => page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).some(b => b.textContent.includes(name)), title));
     await page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).find(b => b.textContent.includes(name)).click(), title);
     await wait(() => page.evaluate(() => Array.from(document.querySelectorAll('[data-website-section]')).map(el => el.dataset.websiteSection).join(',') === 'contact,services'));

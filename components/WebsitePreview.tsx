@@ -5,7 +5,7 @@ import {WEBSITE_PREVIEW_CSS} from '../lib/website-styles';
 export default function WebsitePreview({brief}: {brief: WebsiteBrief}) {
   const ctaHref = websiteCtaHref(brief);
   const contactHref = safeWebsiteLink(brief.contactUrl);
-  return <article className={`website-preview website-theme-${brief.theme} website-design-${brief.designPreset}`} style={{'--site-accent': brief.accent} as CSSProperties}>
+  return <article className={`website-preview website-theme-${brief.theme} website-design-${brief.designPreset} website-kit-${brief.designKit || 'original'}`} style={{'--site-accent': brief.accent} as CSSProperties}>
     <style>{WEBSITE_PREVIEW_CSS}</style>
     <header className="website-nav"><strong>{brief.brand || 'YOUR BRAND'}</strong><span>BRAND EXPERIENCE</span></header>
     <section className="website-hero">

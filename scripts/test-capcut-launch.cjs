@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('assert/strict');
+const moduleTarget={exports:{}};
+let candidates=[],spawned=[];
+const platform={platform:'win32',env:{LOCALAPPDATA:'C:/test-user',ProgramFiles:'C:/Programs'}};
+const code=ts.transpileModule(fs.readFileSync('lib/server/capcut-launch.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText;
+vm.runInNewContext(code,{exports:moduleTarget.exports,module:moduleTarget,process:platform,URL,require:id=>id==='server-only'?{}:id==='node:fs/promises'?{access:async p=>{if(!candidates.includes(p))throw Error('missing');}}:id==='node:child_process'?{spawn:(...args)=>{spawned.push(args);return {once(event,fn){if(event==='spawn')queueMicrotask(fn);return this;},unref(){}};}}:require(id)});
+const api=moduleTarget.exports;
+const request=(host,origin,site='same-origin')=>({url:'http://localhost:4101/api/integrations/capcut/launch',headers:new Headers({host,origin,'sec-fetch-site':site})});
+(async()=>{
+assert.equal(api.isLocalLaunchRequest(request('localhost:4101','http://localhost:4101')),true);
+assert.equal(api.isLocalLaunchRequest(request('127.0.0.1:4101','http://127.0.0.1:4101')),true);
+for(const r of [request('192.168.1.10:4101','http://192.168.1.10:4101'),request('localhost:4101','https://evil.example'),request('localhost:4101','http://localhost:4101','cross-site')])assert.equal(api.isLocalLaunchRequest(r),false);
+assert.equal(await api.findCapCut(),'');
+candidates=[api.capCutCandidates()[0]];
+assert.equal(await api.findCapCut(),candidates[0]);
+await api.launchCapCut(candidates[0]);
+assert.equal(spawned[0][0],candidates[0]);assert.equal(spawned[0][1].length,0);assert.equal(spawned[0][2].shell,undefined);
+assert.equal(api.capCutCandidates('linux').length,0);
+console.log('PASS: CapCut installed/missing detection, local-only origin guard and shell-free launch');
+})().catch(e=>{console.error(e);process.exitCode=1;});

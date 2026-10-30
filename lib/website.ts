@@ -1,3 +1,4 @@
+import {validateProductionBrief,type WebsiteProductionBrief} from './website-production';
 export const WEBSITE_SECTION_LABELS = {about: '브랜드 소개', services: '서비스', contact: '문의 안내'} as const;
 export type WebsiteSectionId = keyof typeof WEBSITE_SECTION_LABELS;
 export type WebsiteSection = {id: WebsiteSectionId; enabled: boolean};
@@ -6,7 +7,15 @@ export const DEFAULT_WEBSITE_SECTIONS: WebsiteSection[] = [
 ];
 const LEGACY_SECTIONS: WebsiteSection[] = DEFAULT_WEBSITE_SECTIONS.map(section => ({...section, enabled: section.id === 'services'}));
 
+export const WEBSITE_DESIGN_KITS = {
+  original: '기존 디자인 유지',
+  minimal: '미니멀 · 선명한 타이포와 직선',
+  publication: '퍼블리케이션 · 세리프와 넓은 여백',
+  portfolio: '포트폴리오 · 이미지와 부드러운 모서리',
+} as const;
 export type WebsiteBrief = {
+  productionBrief?: WebsiteProductionBrief;
+  designKit: keyof typeof WEBSITE_DESIGN_KITS;
   title: string;
   brand: string;
   headline: string;
@@ -42,7 +51,7 @@ export const EMPTY_WEBSITE: WebsiteBrief = {
   accent: '#c4b5fd', theme: 'dark', heroImageId: '',
   sections: DEFAULT_WEBSITE_SECTIONS.map(section => ({...section})),
   aboutHeading: '우리의 이야기', aboutBody: '', contactHeading: '함께 다음 장면을 만드세요.', contactText: '', contactUrl: '',
-  designPreset: 'studio', referenceTitle: '',
+  designPreset: 'studio', referenceTitle: '', designKit: 'original',
 };
 
 export function safeWebsiteLink(value: string) {
@@ -83,6 +92,8 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   const contactText = optionalText('contactText', 1200), contactUrl = optionalText('contactUrl', 2000);
   const designPreset = data.designPreset === undefined ? 'studio' : data.designPreset;
   if (!['studio','editorial','gallery'].includes(designPreset as string)) throw new Error('지원하지 않는 디자인 방향입니다.');
+  const designKit = data.designKit === undefined ? 'original' : data.designKit;
+  if (typeof designKit !== 'string' || !Object.prototype.hasOwnProperty.call(WEBSITE_DESIGN_KITS, designKit)) throw new Error('지원하지 않는 디자인 키트입니다.');
   const referenceTitle = optionalText('referenceTitle', 180);
   if (referenceUrl) {
     let url: URL;
@@ -110,5 +121,5 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   });
   return {title, brand, headline, description, audience, referenceUrl, ctaLabel, accent,
     theme: data.theme, heroImageId, services: data.services.map(s => (s as string).trim()),
-    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle};
+    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief)};
 }

@@ -6,7 +6,7 @@ const code = ts.transpileModule(fs.readFileSync('lib/website.ts', 'utf8'), {
   compilerOptions: {module: ts.ModuleKind.CommonJS},
 }).outputText;
 const target = {exports: {}};
-vm.runInNewContext(code, {exports: target.exports, module: target, URL});
+vm.runInNewContext(code, {exports: target.exports, module: target, URL, require: id => loadTs('lib/' + id.slice(2) + '.ts')});
 const {EMPTY_WEBSITE, validateWebsiteBrief} = target.exports;
 const good = {...EMPTY_WEBSITE, title: '브랜드 소개', brand: 'ATELIER', headline: '새로운 공간', description: '고객을 위한 디자인'};
 const clean = validateWebsiteBrief({...good, title: '  브랜드 소개  ', id: '../../injected', createdAt: 'forged'});
@@ -65,3 +65,34 @@ assert.throws(() => exportWebsiteHtml({...good, heroImageId: 'photo-1'}, 'data:i
 assert.ok(exportWebsiteHtml({...good, heroImageId: 'photo-1'}, 'data:image/png;base64,aGVsbG8=').includes('src="data:image/png;base64,aGVsbG8="'));
 assert.equal(exportWebsiteHtml({...good, sections: good.sections.map(s => ({...s, enabled: false}))}).includes('class="website-cta"'), false);
 console.log('PASS: legacy section defaults, section validation, CTA fallback, ordered/hidden sections, HTML escaping and embedded-image export');
+
+// Persisted kit IDs are allowlisted before becoming preview/export class names.
+assert.equal(validateWebsiteBrief({...good, designKit: undefined}).designKit, 'original');
+for (const designKit of ['original','minimal','publication','portfolio']) {
+  const saved = validateWebsiteBrief({...good, designKit});
+  assert.equal(saved.designKit, designKit);
+  assert.ok(exportWebsiteHtml(saved).includes('website-kit-' + designKit));
+}
+for (const designKit of ['__proto__', 'constructor', '\"><script>', null, 42]) assert.throws(() => validateWebsiteBrief({...good, designKit}));
+const {importWebsiteMetadata} = loadTs('lib/website-metadata.ts');
+assert.equal(importWebsiteMetadata(JSON.stringify({name:'새 브랜드',description:'새 소개'}), {...good,designKit:'publication'}).designKit,'publication');
+console.log('PASS: design kit migration, persistence, export parity, injection rejection and metadata preservation');
+
+const {websiteTypeBrief}=loadTs('lib/website-types.ts');
+for(const [tier,layout,kit,sectionCount] of [['basic','studio','minimal',3],['business','editorial','publication',3],['premium','gallery','portfolio',3]]){
+ const draft=websiteTypeBrief(tier);
+ assert.equal(draft.designPreset,layout);assert.equal(draft.designKit,kit);
+ assert.equal(draft.sections.filter(section=>section.enabled).length,sectionCount);
+ const valid=validateWebsiteBrief({...draft,title:good.title,brand:good.brand,headline:good.headline,description:good.description});
+ assert.ok(exportWebsiteHtml(valid).includes('website-kit-'+kit));
+}
+console.log('PASS: three website entry cards initialize distinct layouts, design kits and sections');
+
+const {emptyProductionBrief}=loadTs('lib/website-production.ts');
+const production={...emptyProductionBrief('business'),goal:' 상담 문의 ',modules:['콘텐츠 CMS','리드·CRM']};
+const savedProduction=validateWebsiteBrief({...good,productionBrief:production}).productionBrief;
+assert.equal(savedProduction.goal,'상담 문의');assert.equal(savedProduction.tier,'business');assert.equal(savedProduction.modules.length,2);
+for(const productionBrief of [null,[],{...production,tier:'advanced'},{...production,goal:'x'.repeat(1601)},{...production,modules:['unknown']},{...production,modules:['리드·CRM','리드·CRM']}])assert.throws(()=>validateWebsiteBrief({...good,productionBrief}));
+assert.equal(validateWebsiteBrief(good).productionBrief,undefined);
+assert.ok(!exportWebsiteHtml({...good,productionBrief:{...production,operations:'PRIVATE_OPERATIONS_NOTE'}}).includes('PRIVATE_OPERATIONS_NOTE'));
+console.log('PASS: production brief persistence contract, bounded options, legacy compatibility and private notes excluded from public HTML');

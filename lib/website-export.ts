@@ -19,7 +19,7 @@ export function exportWebsiteHtml(input: WebsiteBrief, imageDataUrl = '') {
   const cover = brief.heroImageId ? `<img class="website-cover" src="${imageDataUrl}" alt="${e(brief.brand)} 대표 이미지">` : `<div class="website-art" aria-hidden="true"><div></div><span>${e(brief.brand)}</span><small>SHAPE YOUR NEXT CHAPTER</small></div>`;
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${e(brief.title)}</title><meta name="description" content="${e(brief.description)}"><style>body{margin:0;background:${brief.theme === 'dark' ? '#10131c' : '#faf9f6'}}.website-export-frame{container-type:inline-size;max-width:1600px;margin:auto}${WEBSITE_PREVIEW_CSS}</style></head>
-<body><main class="website-export-frame"><article class="website-preview website-theme-${brief.theme} website-design-${brief.designPreset}" style="--site-accent:${brief.accent}">
+<body><main class="website-export-frame"><article class="website-preview website-theme-${brief.theme} website-design-${brief.designPreset} website-kit-${brief.designKit}" style="--site-accent:${brief.accent}">
 <header class="website-nav"><strong>${e(brief.brand)}</strong><span>BRAND EXPERIENCE</span></header>
 <section class="website-hero"><div><div class="website-eyebrow">${e(brief.audience || '당신의 고객을 위한 새로운 경험')}</div><h1>${e(brief.headline)}</h1><p>${e(brief.description)}</p>${cta(websiteCtaHref(brief))}</div>${cover}</section>
 ${sections}
