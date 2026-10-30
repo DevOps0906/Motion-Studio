@@ -68,6 +68,23 @@
 
 기능 구현·검증·범위가 바뀔 때 이 절의 표와 체크 목록을 함께 갱신합니다.
 
+## 콘텐츠 바로가기
+
+제작 콘텐츠별로 화면 경로, 기획·명세 문서, 구현 코드를 한곳에서 찾을 수 있습니다. 화면 경로는 로컬 실행(`npm run dev`) 후 접속하는 주소이고, 문서·코드 링크는 이 저장소 안의 파일로 이동합니다.
+
+| 콘텐츠 | 화면 경로 | 기획·명세 문서 | 구현 코드 |
+|---|---|---|---|
+| 영상 인트로·모션 | `/studio` | [영상·콘텐츠 제작](docs/features/video/README.md) · [로컬 제작과 CapCut 내보내기](docs/features/video/CAPCUT_EXPORT.md) | [`remotion/`](remotion) · [`app/studio/`](app/studio) |
+| 콘텐츠 템플릿 9종 | `/content/[template]` | [콘텐츠 레퍼런스 템플릿](docs/features/video/CONTENT_TEMPLATES.md) | [`app/content/`](app/content) · [`components/ContentTemplateBuilder.tsx`](components/ContentTemplateBuilder.tsx) |
+| 웹사이트 제작기 | `/websites` | [웹사이트 제작](docs/features/websites/README.md) · [상품 전략](docs/features/websites/WEBSITE_SERVICE_PRODUCTS.md) · [상품 체계](docs/features/websites/WEBSITE_SYSTEM_PRODUCTS.md) | [`app/websites/`](app/websites) |
+| 고객 개발요구사항 진단 | `/website-requirements` | [진단·상담 접수](docs/features/websites/WEBSITE_REQUIREMENTS.md) | [`app/website-requirements/`](app/website-requirements) · [`components/WebsiteRequirements.tsx`](components/WebsiteRequirements.tsx) |
+| 홈페이지형 블로그 디자인 | `/blog-skins` | [제작기](docs/features/blog/HOMEPAGE_BLOG_DESIGN.md) · [주소·레퍼런스 자동 기획](docs/features/blog/BLOG_AUTOPLAN.md) | [`components/BlogSkinBuilder.tsx`](components/BlogSkinBuilder.tsx) · [`lib/blog-skin.ts`](lib/blog-skin.ts) |
+| 레퍼런스 라이브러리 | `/references` | [레퍼런스 활용 기획](docs/references/REFERENCE_WORKFLOW.md) · [경쟁 서비스 벤치마킹](docs/references/BENCHMARK.md) | [`app/references/`](app/references) |
+| 3D 갤러리·모델 뷰어 | `/gallery` · `/architecture/viewer` | [건축·3D 확장 설계](docs/architecture/3d/README.md) | [`app/gallery/`](app/gallery) · [`app/architecture/`](app/architecture) |
+| 제작 구조도 | `/architecture` | [플랫폼 구조](docs/architecture/ARCHITECTURE.md) · [파일 기반 제작 범위](docs/architecture/IMPORT_WORKFLOW.md) | [`app/architecture/`](app/architecture) |
+
+전체 문서 목록은 [문서 안내](docs/README.md), 디자인은 [디자인 명세](docs/design/DESIGN.md), 진행 상태는 [구현·검증 상태](docs/development/IMPLEMENTATION_STATUS.md)에서 확인합니다.
+
 ## 연관·참고 저장소
 
 | 저장소 | Motion Studio와의 연관성 | 참고 범위 |
