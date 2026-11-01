@@ -1,8 +1,9 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {resolveWebsitePage, WEBSITE_SECTION_LABELS,type WebsiteBrief,type WebsitePage} from '../lib/website';
+import type {MediaAsset} from '../lib/model';
 
-export default function WebsitePagesEditor({brief,activePageId,onSelect,onChange,onAdd}:{brief:WebsiteBrief;activePageId:string;onSelect:(id:string)=>void;onChange:(pages:WebsitePage[])=>void;onAdd:()=>void}) {
+export default function WebsitePagesEditor({brief,activePageId,onSelect,onChange,onAdd,media}:{brief:WebsiteBrief;activePageId:string;onSelect:(id:string)=>void;onChange:(pages:WebsitePage[])=>void;onAdd:()=>void;media:MediaAsset[]}) {
   const page=brief.pages.find(item=>item.id===activePageId);
   const [address,setAddress]=useState(activePageId),[error,setError]=useState('');
   useEffect(()=>{setAddress(activePageId);setError('');},[activePageId]);
@@ -31,6 +32,7 @@ export default function WebsitePagesEditor({brief,activePageId,onSelect,onChange
       {error&&<p role="alert" className="error-text">{error}</p>}
       <label>첫 화면 제목<input required value={page.headline} maxLength={160} onChange={e=>update({headline:e.target.value})}/></label>
       <label>페이지 소개<textarea value={page.description} maxLength={1200} rows={3} onChange={e=>update({description:e.target.value})}/></label>
+      <label>이 페이지 대표 이미지<select value={page.heroImageId||''} onChange={e=>update({heroImageId:e.target.value||undefined})}><option value="">홈 대표 이미지 사용</option>{page.heroImageId&&!media.some(m=>m.id===page.heroImageId)&&<option value={page.heroImageId}>기존 이미지 · 목록 확인 필요</option>}{media.map(asset=><option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label>
       <div className="website-section-editor"><h4>이 페이지의 섹션</h4><p className="small">표시와 순서는 페이지별로 저장됩니다. 디자인은 사이트 전체가 공유하고, 상세 문구는 이 페이지에서 별도로 설정할 수 있습니다.</p><ol>{page.sections.map((section,index)=><li key={section.id}><label className="check"><input type="checkbox" checked={section.enabled} onChange={e=>update({sections:page.sections.map(item=>item.id===section.id?{...item,enabled:e.target.checked}:item)})}/>{WEBSITE_SECTION_LABELS[section.id]}</label><div className="actions"><button type="button" disabled={index===0} aria-label={`${WEBSITE_SECTION_LABELS[section.id]} 위로`} onClick={()=>move(index,-1)}>↑</button><button type="button" disabled={index===page.sections.length-1} aria-label={`${WEBSITE_SECTION_LABELS[section.id]} 아래로`} onClick={()=>move(index,1)}>↓</button></div></li>)}</ol></div>
       <label className="check"><input type="checkbox" checked={!!page.content} onChange={e=>update({content:e.target.checked?copyContent():undefined})}/>이 페이지의 상세 문구를 별도로 편집</label>
       {page.content?<div className="website-page-fields">
@@ -42,7 +44,7 @@ export default function WebsitePagesEditor({brief,activePageId,onSelect,onChange
         <label>문의 링크<input type="url" value={content.contactUrl} maxLength={2000} onChange={e=>update({content:{...copyContent(),contactUrl:e.target.value}})}/></label>
         <label>버튼 문구<input required value={content.ctaLabel} maxLength={40} onChange={e=>update({content:{...copyContent(),ctaLabel:e.target.value}})}/></label>
         <p className="small">별도 편집을 끄면 이 페이지의 상세 문구가 제거되고 홈의 최신 내용을 따릅니다.</p>
-      </div>:<p className="small">소개·서비스·문의 상세 문구는 홈의 브랜드 정보를 따릅니다. 별도 편집을 켜면 현재 내용을 복사합니다.</p>}
+      </div>:<p className="small">소개·서비스·문의·후기·FAQ 상세 문구는 홈의 브랜드 정보를 따릅니다. 별도 편집을 켜면 현재 내용을 복사합니다.</p>}
       <button type="button" onClick={()=>{if(!window.confirm(`'${page.title}' 페이지를 삭제할까요?`))return;onChange(brief.pages.filter(item=>item.id!==activePageId));onSelect('index');}}>이 페이지 삭제</button>
     </div>:<p className="small">홈은 아래 브랜드 브리프에서 편집합니다. 추가 페이지는 전역 디자인을 공유하며 페이지별 제목·소개·섹션 구성을 설정할 수 있습니다.</p>}
   </div>;

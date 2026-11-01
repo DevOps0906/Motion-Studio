@@ -9,5 +9,5 @@ export type WebsiteType=keyof typeof WEBSITE_TYPES;
 export function websiteTypeBrief(tier:WebsiteType):WebsiteBrief{
  const preset=WEBSITE_TYPES[tier];
  return {...EMPTY_WEBSITE,services:[...EMPTY_WEBSITE.services],designPreset:preset.designPreset,designKit:preset.designKit,productionBrief:emptyProductionBrief(tier),
-  sections:EMPTY_WEBSITE.sections.map(section=>({...section,enabled:true}))};
+  sections:EMPTY_WEBSITE.sections.map(section=>({...section}))};
 }

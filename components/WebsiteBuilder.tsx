@@ -4,7 +4,7 @@ import {WEBSITE_DESIGN_KITS} from '../lib/website';
 import {WEBSITE_TYPES,websiteTypeBrief,type WebsiteType} from '../lib/website-types';
 
 import {useEffect, useState, useRef, type FormEvent} from 'react';
-import {EMPTY_WEBSITE, WEBSITE_SECTION_LABELS, validateWebsiteBrief, safeWebsiteLink, type WebsiteBrief, type WebsiteProject} from '../lib/website';
+import {EMPTY_WEBSITE, WEBSITE_SECTION_LABELS, validateWebsiteBrief, dropEmptyReviewItems, websiteSectionUsed, safeWebsiteLink, type WebsiteBrief, type WebsiteProject} from '../lib/website';
 import type {MediaAsset} from '../lib/model';
 import WebsitePreview from './WebsitePreview';
 import WebsitePagesEditor from './WebsitePagesEditor';
@@ -108,7 +108,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
   async function save(event: FormEvent) {
     event.preventDefault(); setError(''); setNotice('');
     try {
-      const valid = validateWebsiteBrief(brief); setSaving(true);
+      const valid = validateWebsiteBrief(dropEmptyReviewItems(brief)); setSaving(true);
       const project = await request<WebsiteProject>(selectedId ? `/api/websites/${selectedId}` : '/api/websites', {
         method: selectedId ? 'PATCH' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(valid),
       });
@@ -134,7 +134,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
         <div className="metadata-import"><button type="button" disabled={busy} onClick={()=>metadataInput.current?.click()}>홈페이지 정보 JSON 가져오기</button><a href="/templates/website-metadata.sample.json" download>메타데이터 양식 ↓</a><p className="small">브랜드·소개·서비스·문의 정보를 페이지 초안으로 구성합니다.</p><input className="website-metadata-input" ref={metadataInput} hidden type="file" accept=".json,.jsonld,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void importMetadata(file);}}/></div>
         <WebsiteReferencePicker disabled={busy} onChoose={chooseReference}/>
         <fieldset disabled={busy}>
-          <WebsitePagesEditor brief={brief} activePageId={activePageId} onSelect={setActivePageId} onChange={pages=>edit('pages',pages)} onAdd={addPage}/>
+          <WebsitePagesEditor brief={brief} activePageId={activePageId} onSelect={setActivePageId} onChange={pages=>edit('pages',pages)} onAdd={addPage} media={media}/>
           <label>프로젝트 이름<input name="title" required maxLength={120} value={brief.title} placeholder="예: 스튜디오 소개 페이지" onChange={e => edit('title', e.target.value)}/></label>
           <label>브랜드명<input name="brand" required maxLength={80} value={brief.brand} placeholder="예: MOTION ATELIER" onChange={e => edit('brand', e.target.value)}/></label>
           <label>핵심 문구<input name="headline" required maxLength={160} value={brief.headline} placeholder="브랜드가 전할 한 문장" onChange={e => edit('headline', e.target.value)}/></label>
@@ -155,6 +155,12 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
           </div>
           {brief.sections.some(section => section.id === 'about' && section.enabled) && <div className="website-section-fields"><h3>소개 섹션</h3><label>소개 제목<input maxLength={120} value={brief.aboutHeading} onChange={e => edit('aboutHeading', e.target.value)}/></label><label>소개 본문 · 비우면 브랜드 소개 사용<textarea rows={4} maxLength={1200} value={brief.aboutBody} onChange={e => edit('aboutBody', e.target.value)}/></label></div>}
           {brief.sections.some(section => section.id === 'contact' && section.enabled) && <div className="website-section-fields"><h3>문의 섹션</h3><label>문의 제목<input maxLength={120} value={brief.contactHeading} onChange={e => edit('contactHeading', e.target.value)}/></label><label>문의 안내<textarea rows={3} maxLength={1200} value={brief.contactText} onChange={e => edit('contactText', e.target.value)}/></label><label>문의 링크 · 선택<input type="url" maxLength={2000} placeholder="https://example.com/contact" value={brief.contactUrl} onChange={e => edit('contactUrl', e.target.value)}/></label></div>}
+          {websiteSectionUsed(brief, 'testimonials') && <div className="website-section-fields"><h3>고객 후기 섹션</h3><p className="small">후기 문구는 이 섹션을 켠 모든 페이지가 공유합니다. 빈 후기는 저장할 때 제외됩니다.</p><label>후기 제목<input maxLength={120} value={brief.testimonialsHeading} onChange={e => edit('testimonialsHeading', e.target.value)}/></label>
+            {brief.testimonials.map((item, index) => <fieldset key={index}><legend>후기 {index + 1}</legend><label>후기 내용<textarea rows={3} maxLength={300} value={item.quote} onChange={e => edit('testimonials', brief.testimonials.map((value, i) => i === index ? {...value, quote: e.target.value} : value))}/></label><label>작성자 · 선택<input maxLength={300} value={item.name} onChange={e => edit('testimonials', brief.testimonials.map((value, i) => i === index ? {...value, name: e.target.value} : value))}/></label><button type="button" onClick={() => edit('testimonials', brief.testimonials.filter((_, i) => i !== index))}>이 후기 삭제</button></fieldset>)}
+            <button type="button" disabled={brief.testimonials.length >= 6} onClick={() => edit('testimonials', [...brief.testimonials, {quote: '', name: ''}])}>＋ 후기 추가 · 최대 6개</button></div>}
+          {websiteSectionUsed(brief, 'faq') && <div className="website-section-fields"><h3>자주 묻는 질문 섹션</h3><p className="small">질문과 답변은 이 섹션을 켠 모든 페이지가 공유합니다. 빈 질문은 저장할 때 제외됩니다.</p><label>FAQ 제목<input maxLength={120} value={brief.faqHeading} onChange={e => edit('faqHeading', e.target.value)}/></label>
+            {brief.faqs.map((item, index) => <fieldset key={index}><legend>질문 {index + 1}</legend><label>질문<input maxLength={300} value={item.question} onChange={e => edit('faqs', brief.faqs.map((value, i) => i === index ? {...value, question: e.target.value} : value))}/></label><label>답변<textarea rows={3} maxLength={300} value={item.answer} onChange={e => edit('faqs', brief.faqs.map((value, i) => i === index ? {...value, answer: e.target.value} : value))}/></label><button type="button" onClick={() => edit('faqs', brief.faqs.filter((_, i) => i !== index))}>이 질문 삭제</button></fieldset>)}
+            <button type="button" disabled={brief.faqs.length >= 8} onClick={() => edit('faqs', [...brief.faqs, {question: '', answer: ''}])}>＋ 질문 추가 · 최대 8개</button></div>}
           <button className="primary full" type="submit">{saving ? '저장 중…' : '프로젝트 저장'}</button>
         </fieldset>
         {error && <p role="alert" className="error-text">{error}</p>}

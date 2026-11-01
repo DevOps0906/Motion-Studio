@@ -55,7 +55,7 @@ export async function deleteMedia(id:string){
  const projects=await listJson<Project>(path.join(DATA,'projects'));
  if(projects.some(p=>p.photos.includes(id)||p.brand.logoAssetId===id||p.audio.assetId===id))throw new Error('프로젝트에서 사용 중입니다. 먼저 프로젝트에서 제외해 주세요.');
  const websites=await listJson<WebsiteProject>(path.join(DATA,'websites'));
- if(websites.some(p=>p.heroImageId===id))throw new Error('웹 프로젝트에서 사용 중입니다. 먼저 대표 이미지를 변경해 주세요.');
+ if(websites.some(p=>p.heroImageId===id||(Array.isArray(p.pages)&&p.pages.some(page=>page?.heroImageId===id))))throw new Error('웹 프로젝트에서 사용 중입니다. 먼저 대표 이미지를 변경해 주세요.');
  const blogs=await listJson<BlogSkinProject>(path.join(DATA,'blog-skins'));if(blogs.some(p=>p.draft.imageId===id||p.draft.logoImageId===id))throw new Error('블로그 스킨에서 사용 중입니다. 먼저 이미지를 변경해 주세요.');
  const all=await listMedia();if(all.some(m=>m.sourceAssetId===id))throw new Error('이 파일에서 만든 사진이 있습니다. 파생 사진의 원본 연결을 위해 보존합니다.');
  await fs.unlink(fileFor('media',asset.id));await fs.unlink(path.join(DATA,'files',asset.id));

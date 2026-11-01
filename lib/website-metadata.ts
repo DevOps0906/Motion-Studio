@@ -23,7 +23,7 @@ export function importWebsiteMetadata(text:string,current:WebsiteBrief=EMPTY_WEB
     services:services.length?services:['소개'],contactHeading:field(['contactHeading'],'함께 이야기해요.'),
     contactText:field(['contactText','문의안내'],typeof contact.text==='string'?contact.text:''),contactUrl,
     ctaLabel:field(['ctaLabel'],contactUrl?'문의하기':'자세히 보기'),
-    sections:EMPTY_WEBSITE.sections.map(section=>({...section,enabled:section.id!=='contact'||Boolean(contactUrl)})),
+    sections:EMPTY_WEBSITE.sections.map(section=>({...section,enabled:section.id==='contact'?Boolean(contactUrl):section.enabled})),
   };
   return validateWebsiteBrief(result);
 }

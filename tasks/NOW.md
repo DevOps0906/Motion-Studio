@@ -1,13 +1,13 @@
 # NOW — 재진입 스냅샷 (30줄 이내, 매 작업 끝에 덮어쓴다)
 
 - 갱신: 2026-11-01
-- 현재 작업: task-001 다중 페이지 브라우저 검수 — 상태: 완료
-- 마지막으로 한 일: Chrome으로 페이지 추가·편집·저장·재열기·미리보기 메뉴 이동·저장 미리보기·ZIP 구성·390px 폭 검수 (모두 통과)
-- 다음 한 걸음: task-002 섹션 종류·페이지별 이미지 확장 — 착수 전 범위(섹션 종류 목록) 확정 필요
-- 열린 결정(사용자 확인 필요): Dependabot PR #1~#4(TS 7·@types/node 26·node 26 메이저 업) 병합 여부, 페이지 주소 자동 생성 여부
-- 주의(이번 작업에서 알게 된 함정): 127.0.0.1:4101은 다른 프로그램이 점유 중 → 4111로 검수. next dev가 next-env.d.ts를 바꾸므로 되돌릴 것
-- SDLC 단계: 07 QA → 다음 06 구현
-- 담당 모델/역할: 팀장(Opus 5.5) 브라우저 검수
-- 수정 파일: tasks/README.md, tasks/NOW.md, README.md
-- 테스트 상태: 브라우저 수동 검수 통과 / 자동 테스트 미실행(코드 변경 없음)
-- 남은 작업: task-002 → 003(높음) · 004 → 005(높음), 발견한 문제 4건(tasks/README.md)
+- 현재 작업: task-002 웹사이트 섹션·페이지별 이미지 확장 — 상태: 완료(커밋 대기)
+- 마지막으로 한 일: 후기·FAQ 섹션, 페이지별 대표 이미지(저장 확인·삭제 방지), 빈 항목 거르기, 안내 문구 정정. reviewer(Opus) ACCEPT 후 Should 2건 반영
+- 다음 한 걸음: task-003 문의 전송·운영자 알림(위험도 높음 → 착수 전 challenger) 또는 task-004 벤치마크 분석
+- 열린 결정(사용자 확인 필요): task-003 알림 수단(이메일·웹훅 등), Dependabot PR #1~#4 병합 여부
+- 주의(이번 작업에서 알게 된 함정): Codex 한도 초과(2026-11-04 17:54까지) → reviewer로 대체. 4101 포트는 다른 프로그램 점유
+- SDLC 단계: 06 구현 완료 → 07 QA(브라우저 확인은 미실행)
+- 담당 모델/역할: builder(Opus) 구현 · reviewer(Opus) 리뷰 · 팀장 검증
+- 수정 파일: lib/website*.ts, lib/server/{websites,store}.ts, components/Website*.tsx, app/api/websites/[id]/export/route.ts, scripts/test-websites.cjs, tasks/*, README.md
+- 테스트 상태: typecheck·npm test·build 통과(build는 builder 실행)
+- 남은 작업: task-003(높음) · task-004 → task-005(높음)

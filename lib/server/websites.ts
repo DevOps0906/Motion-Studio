@@ -19,9 +19,10 @@ export async function listWebsites() {
 export async function saveWebsite(input: unknown, id?: string) {
   const brief = validateWebsiteBrief(input);
   const existing = id ? await getWebsite(id) : undefined;
-  if (brief.heroImageId) {
+  const imageIds = [brief.heroImageId, ...brief.pages.map(page => page.heroImageId ?? '')].filter(Boolean);
+  if (imageIds.length) {
     const media = await listMedia();
-    if (!media.some(m => m.id === brief.heroImageId && m.type === 'image' && m.role !== 'source-capture')) throw new Error('대표 이미지로 사용할 사진을 다시 선택해 주세요.');
+    if (imageIds.some(imageId => !media.some(m => m.id === imageId && m.type === 'image' && m.role !== 'source-capture'))) throw new Error('대표 이미지로 사용할 사진을 다시 선택해 주세요.');
   }
   const now = new Date().toISOString();
   const project: WebsiteProject = {...brief, id: existing?.id ?? randomUUID(), schemaVersion: 1,

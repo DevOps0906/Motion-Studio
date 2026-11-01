@@ -1,13 +1,22 @@
 import {validateProductionBrief,type WebsiteProductionBrief} from './website-production';
-export const WEBSITE_SECTION_LABELS = {about: '브랜드 소개', services: '서비스', contact: '문의 안내'} as const;
+export const WEBSITE_SECTION_LABELS = {about: '브랜드 소개', services: '서비스', contact: '문의 안내', testimonials: '고객 후기', faq: '자주 묻는 질문'} as const;
 export type WebsiteSectionId = keyof typeof WEBSITE_SECTION_LABELS;
 export type WebsiteSection = {id: WebsiteSectionId; enabled: boolean};
 export type WebsitePageContent = Pick<WebsiteBrief,'aboutHeading'|'aboutBody'|'services'|'contactHeading'|'contactText'|'contactUrl'|'ctaLabel'>;
-export type WebsitePage = {content?:WebsitePageContent;id: string; title: string; headline: string; description: string; sections: WebsiteSection[]};
+export type WebsiteTestimonial = {quote: string; name: string};
+export type WebsiteFaq = {question: string; answer: string};
+export type WebsitePage = {content?:WebsitePageContent;heroImageId?:string;id: string; title: string; headline: string; description: string; sections: WebsiteSection[]};
 export const DEFAULT_WEBSITE_SECTIONS: WebsiteSection[] = [
   {id: 'about', enabled: true}, {id: 'services', enabled: true}, {id: 'contact', enabled: true},
+  {id: 'testimonials', enabled: false}, {id: 'faq', enabled: false},
 ];
+// Sections added after the first release; stored 3-section data is completed with these hidden.
+const ADDED_SECTION_IDS: WebsiteSectionId[] = ['testimonials', 'faq'];
+function withAddedSections(sections: WebsiteSection[]) {
+  return [...sections, ...ADDED_SECTION_IDS.filter(id => !sections.some(section => section.id === id)).map(id => ({id, enabled: false}))];
+}
 const LEGACY_SECTIONS: WebsiteSection[] = DEFAULT_WEBSITE_SECTIONS.map(section => ({...section, enabled: section.id === 'services'}));
+const SECTION_COUNT = DEFAULT_WEBSITE_SECTIONS.length;
 
 export const WEBSITE_DESIGN_KITS = {
   original: '기존 디자인 유지',
@@ -35,6 +44,10 @@ export type WebsiteBrief = {
   contactHeading: string;
   contactText: string;
   contactUrl: string;
+  testimonialsHeading: string;
+  testimonials: WebsiteTestimonial[];
+  faqHeading: string;
+  faqs: WebsiteFaq[];
   designPreset: 'studio' | 'editorial' | 'gallery';
   referenceTitle: string;
   pages: WebsitePage[];
@@ -54,6 +67,7 @@ export const EMPTY_WEBSITE: WebsiteBrief = {
   accent: '#c4b5fd', theme: 'dark', heroImageId: '',
   sections: DEFAULT_WEBSITE_SECTIONS.map(section => ({...section})),
   aboutHeading: '우리의 이야기', aboutBody: '', contactHeading: '함께 다음 장면을 만드세요.', contactText: '', contactUrl: '',
+  testimonialsHeading: '고객 후기', testimonials: [], faqHeading: '자주 묻는 질문', faqs: [],
   designPreset: 'studio', referenceTitle: '', designKit: 'original',
   pages: [],
 };
@@ -66,7 +80,8 @@ export function safeWebsiteLink(value: string) {
 }
 
 export function websiteCtaHref(brief: WebsiteBrief) {
-  const visible = brief.sections.filter(section => section.enabled);
+  // Empty testimonial/FAQ sections are not rendered, so they cannot be CTA targets.
+  const visible = brief.sections.filter(section => section.enabled && !(section.id === 'testimonials' && !brief.testimonials.length) && !(section.id === 'faq' && !brief.faqs.length));
   const contact = safeWebsiteLink(brief.contactUrl);
   return visible.some(section => section.id === 'contact') && contact
     ? contact : visible.length ? `#website-${visible[0].id}` : '';
@@ -112,14 +127,18 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
     const pageHeadline = typeof page.headline === 'string' ? page.headline.trim() : '';
     const pageDescription = typeof page.description === 'string' ? page.description.trim() : '';
     if (!title || title.length > 80 || !pageHeadline || pageHeadline.length > 160 || pageDescription.length > 1200) throw new Error('페이지 이름·제목·소개 길이를 확인해 주세요.');
-    if (!Array.isArray(page.sections) || page.sections.length !== 3) throw new Error('페이지 섹션 구성을 확인해 주세요.');
+    if (!Array.isArray(page.sections) || (page.sections.length !== 3 && page.sections.length !== SECTION_COUNT)) throw new Error('페이지 섹션 구성을 확인해 주세요.');
     const sections = page.sections.map((section): WebsiteSection => {
       if (!section || typeof section !== 'object' || Array.isArray(section)) throw new Error('페이지 섹션 정보를 확인해 주세요.');
       const value = section as Record<string, unknown>;
       if (typeof value.id !== 'string' || !Object.prototype.hasOwnProperty.call(WEBSITE_SECTION_LABELS, value.id) || typeof value.enabled !== 'boolean') throw new Error('페이지 섹션 정보를 확인해 주세요.');
       return {id: value.id as WebsiteSectionId, enabled: value.enabled};
     });
-    if (new Set(sections.map(section => section.id)).size !== 3) throw new Error('페이지 섹션이 중복되었습니다.');
+    if (new Set(sections.map(section => section.id)).size !== sections.length) throw new Error('페이지 섹션이 중복되었습니다.');
+    const pageSections = withAddedSections(sections);
+    if (pageSections.length !== SECTION_COUNT) throw new Error('페이지 섹션 구성을 확인해 주세요.');
+    const pageImageId = page.heroImageId === undefined ? '' : page.heroImageId;
+    if (typeof pageImageId !== 'string' || (pageImageId && !/^[a-zA-Z0-9-]{1,80}$/.test(pageImageId))) throw new Error('페이지 대표 이미지 ID가 올바르지 않습니다.');
     let content:WebsitePageContent|undefined;
     if(page.content!==undefined){
       if(!page.content||typeof page.content!=='object'||Array.isArray(page.content))throw new Error('페이지 상세 내용을 확인해 주세요.');
@@ -131,7 +150,7 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
       if(contactUrl&&!safeWebsiteLink(contactUrl))throw new Error('페이지 문의 링크는 인증 정보 없는 http 또는 https 주소로 입력해 주세요.');
       content={aboutHeading:field('aboutHeading',120),aboutBody:field('aboutBody',1200),services:services.map(value=>(value as string).trim()),contactHeading:field('contactHeading',120),contactText:field('contactText',1200),contactUrl,ctaLabel:field('ctaLabel',40,true)};
     }
-    return {id, title, headline: pageHeadline, description: pageDescription, sections, ...(content?{content}:{})};
+    return {id, title, headline: pageHeadline, description: pageDescription, sections: pageSections, ...(pageImageId?{heroImageId: pageImageId}:{}), ...(content?{content}:{})};
   });
   if (referenceUrl) {
     let url: URL;
@@ -148,21 +167,46 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   if (heroImageId && !/^[a-zA-Z0-9-]{1,80}$/.test(heroImageId)) throw new Error('이미지 ID가 올바르지 않습니다.');
   if (!Array.isArray(data.services) || data.services.length < 1 || data.services.length > 6 || data.services.some(s => typeof s !== 'string' || !s.trim() || s.length > 100)) throw new Error('서비스는 1~6개, 항목별 100자 이하로 입력해 주세요.');
   const rawSections = data.sections === undefined ? LEGACY_SECTIONS : data.sections;
-  if (!Array.isArray(rawSections) || rawSections.length !== 3) throw new Error('소개·서비스·문의 섹션 구성을 확인해 주세요.');
+  if (!Array.isArray(rawSections) || (rawSections.length !== 3 && rawSections.length !== SECTION_COUNT)) throw new Error('소개·서비스·문의 섹션 구성을 확인해 주세요.');
   const seen = new Set<string>();
-  const sections = rawSections.map((section: unknown): WebsiteSection => {
+  const givenSections = rawSections.map((section: unknown): WebsiteSection => {
     if (!section || typeof section !== 'object' || Array.isArray(section)) throw new Error('잘못된 섹션입니다.');
     const {id, enabled} = section as Record<string, unknown>;
     if (typeof id !== 'string' || !Object.prototype.hasOwnProperty.call(WEBSITE_SECTION_LABELS, id) || seen.has(id) || typeof enabled !== 'boolean') throw new Error('섹션 종류·중복·표시 설정을 확인해 주세요.');
     seen.add(id);
     return {id: id as WebsiteSectionId, enabled};
   });
+  const sections = withAddedSections(givenSections);
+  if (sections.length !== SECTION_COUNT) throw new Error('소개·서비스·문의 섹션 구성을 확인해 주세요.');
+  const testimonialsHeading = optionalText('testimonialsHeading', 120, '고객 후기');
+  const faqHeading = optionalText('faqHeading', 120, '자주 묻는 질문');
+  function items(key: string, max: number, message: string) {
+    const value = data[key] === undefined ? [] : data[key];
+    if (!Array.isArray(value) || value.length > max || value.some(item => !item || typeof item !== 'object' || Array.isArray(item))) throw new Error(message);
+    return value as Record<string, unknown>[];
+  }
+  function itemText(value: unknown, required: boolean, label: string) {
+    if (value === undefined && !required) return '';
+    if (typeof value !== 'string' || value.length > 300 || (required && !value.trim())) throw new Error(`${label}: 내용을 300자 이하로 입력해 주세요.`);
+    return value.trim();
+  }
+  const testimonials = items('testimonials', 6, '고객 후기는 최대 6개까지 입력할 수 있습니다.').map(item => ({quote: itemText(item.quote, true, '후기 내용'), name: itemText(item.name, false, '후기 작성자')}));
+  const faqs = items('faqs', 8, '자주 묻는 질문은 최대 8개까지 입력할 수 있습니다.').map(item => ({question: itemText(item.question, true, '질문'), answer: itemText(item.answer, true, '답변')}));
   return {title, brand, headline, description, audience, referenceUrl, ctaLabel, accent,
     theme: data.theme, heroImageId, services: data.services.map(s => (s as string).trim()),
-    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief), pages};
+    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, testimonialsHeading, testimonials, faqHeading, faqs, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief), pages};
+}
+
+// Blank review rows are editor scratch space; drop them before strict validation on save.
+export function dropEmptyReviewItems(brief:WebsiteBrief):WebsiteBrief {
+  return {...brief,testimonials:brief.testimonials.filter(item=>item.quote.trim()),faqs:brief.faqs.filter(item=>item.question.trim()||item.answer.trim())};
+}
+// Testimonial/FAQ text is shared, so its fields matter when any page shows the section.
+export function websiteSectionUsed(brief:WebsiteBrief,id:WebsiteSectionId) {
+  return [brief.sections,...brief.pages.map(page=>page.sections)].some(sections=>sections.some(section=>section.id===id&&section.enabled));
 }
 
 // One page projection shared by the editor preview and the downloadable site.
 export function resolveWebsitePage(brief:WebsiteBrief,page?:WebsitePage):WebsiteBrief {
-  return page?{...brief,...page.content,title:page.title,headline:page.headline,description:page.description,sections:page.sections}:brief;
+  return page?{...brief,...page.content,heroImageId:page.heroImageId||brief.heroImageId,title:page.title,headline:page.headline,description:page.description,sections:page.sections}:brief;
 }
