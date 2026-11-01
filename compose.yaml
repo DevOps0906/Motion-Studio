@@ -26,6 +26,16 @@
       - ./backups:/app/backups
     init: true
 
+  # 임시 공개 주소(도메인 전): `docker compose --profile tunnel up -d` → 로그의 https://*.trycloudflare.com 주소.
+  # 재시작마다 주소가 바뀌고 가용성 보장이 없는 시험용이다. 도메인이 생기면 이 서비스 대신 아래 Caddy를 쓴다.
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.0
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://motion-studio:3000
+    depends_on:
+      - motion-studio
+
   # HTTPS (2단계, 도메인 확정 후): Caddy reverse proxy 예시. 도메인을 넣고 주석을 푼다.
   # caddy:
   #   image: caddy:2

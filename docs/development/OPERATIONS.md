@@ -62,6 +62,11 @@ Windows 작업 스케줄러: 동작 `powershell.exe`, 인수 `-NoProfile -Comman
   Docker Desktop(Windows·macOS)은 바인드 마운트 권한을 자동으로 맞추므로 보통 추가 작업이 필요 없습니다.
 - HTTPS용 Caddy는 `compose.yaml`에 주석 예시만 있습니다(도메인 확정 후 2단계).
 
+## 6-1. 임시 공개 주소 (도메인 전)
+- `docker compose --profile tunnel up -d` → `docker compose logs tunnel`에 나오는 `https://<임의>.trycloudflare.com`으로 외부에서 HTTPS 접속(Cloudflare Quick Tunnel, 계정·포트 개방 불필요).
+- 시험용입니다: 터널을 다시 시작하면 주소가 바뀌고 가용성 보장이 없습니다. 주소를 아는 사람은 누구나 로그인 화면·공개 미리보기에 접근할 수 있으므로 운영자 비밀번호는 16자 이상으로 합니다.
+- 끄기: `docker compose stop tunnel`(앱은 계속 127.0.0.1에서만 열림). 운영자 이메일은 저장소 밖 `.env`(git 제외)의 `REQUIREMENTS_ADMIN_EMAILS`에 둡니다.
+
 ## 7. 검증 스크립트
 - `npm test`의 `scripts/test-operations.cjs`가 모든 `app/api/**/route.ts` 메서드를 자동으로 찾아 미인증 401을 확인합니다.
 - `scripts/verify-*.cjs`(실서버 검증)는 `scripts/verify-session.cjs`가 세션을 붙입니다. 검증 서버는 `SIGNUP_ENABLED=true`로 실행하거나 `VERIFY_EMAIL`·`VERIFY_PASSWORD`로 기존 계정을 지정합니다. 운영자 화면 검증에는 `REQUIREMENTS_ADMIN_EMAILS`도 지정합니다.
