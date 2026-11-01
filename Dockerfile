@@ -20,10 +20,16 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-RUN npm run build
+RUN npm run build \
+    && mkdir -p .local-data out backups .next/cache node_modules/.cache \
+    && chown node:node .local-data out backups .next/cache node_modules/.cache \
+    && chmod 700 backups
+
+# Run as the image's non-root user (uid/gid 1000). Host bind mounts must be writable by uid 1000 (docs/development/OPERATIONS.md).
+USER node
 
 EXPOSE 3000
-VOLUME ["/app/.local-data", "/app/out"]
+VOLUME ["/app/.local-data", "/app/out", "/app/backups"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/studio').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]

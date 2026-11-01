@@ -1,6 +1,6 @@
 const fs=require('fs/promises'),path=require('path'),assert=require('assert/strict');
 const {randomUUID,createHash}=require('crypto'),{openBrowser}=require('@remotion/renderer');
-const base='http://127.0.0.1:4101',email=`qa-${randomUUID()}@example.test`,password=randomUUID()+'Aa9!',name='QA 제작자';
+const base=process.env.VERIFY_BASE||'http://127.0.0.1:4101',email=`qa-${randomUUID()}@example.test`,password=randomUUID()+'Aa9!',name='QA 제작자';
 let browser;
 async function wait(check){for(let i=0;i<100;i++){try{if(await check())return;}catch(error){if(!/context was destroyed|Cannot find context/.test(error.message))throw error;}await new Promise(r=>setTimeout(r,100));}throw Error('Wait timeout');}
 async function shot(page,file){await fs.writeFile(file,Buffer.from((await page._client().send('Page.captureScreenshot',{format:'png'})).value.data,'base64'));}

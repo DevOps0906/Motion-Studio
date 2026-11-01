@@ -15,8 +15,28 @@
       HOSTNAME: 0.0.0.0
       REMOTION_BROWSER_EXECUTABLE: /usr/bin/chromium
       REMOTION_GL: swangle
+      # Operator emails (comma separated). Empty in production = no operator.
+      REQUIREMENTS_ADMIN_EMAILS: ${REQUIREMENTS_ADMIN_EMAILS:-}
+      # Production signup stays closed; create operators with `npm run account:create`.
+      SIGNUP_ENABLED: ${SIGNUP_ENABLED:-false}
     volumes:
       - ./.local-data:/app/.local-data
       - ./out:/app/out
       - ./input:/app/input:ro
+      - ./backups:/app/backups
     init: true
+
+  # HTTPS (2단계, 도메인 확정 후): Caddy reverse proxy 예시. 도메인을 넣고 주석을 푼다.
+  # caddy:
+  #   image: caddy:2
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   command: caddy reverse-proxy --from your-domain.example --to motion-studio:3000
+  #   volumes:
+  #     - caddy-data:/data
+  #   depends_on:
+  #     - motion-studio
+# volumes:
+#   caddy-data:

@@ -1,52 +1,52 @@
 import 'server-only';
-import {createHash, randomBytes, scrypt, timingSafeEqual} from 'node:crypto';
-import {promisify} from 'node:util';
-import {mkdir, readFile, writeFile, unlink} from 'node:fs/promises';
-import path from 'node:path';
-const derive = promisify(scrypt);
-const root = path.join(process.cwd(), '.local-data', 'accounts');
-const hash = (value:string) => createHash('sha256').update(value).digest('hex');
-const lifetime = 7 * 24 * 60 * 60;
-export const SESSION_COOKIE = 'motion-studio-session';
-type Account = {name:string;email:string;salt:string;passwordHash:string};
-export type AccountIdentity = Pick<Account, 'name'|'email'>;
-const attempts = new Map<string,{count:number;until:number}>();
-function limit(email:string){
-  const key=hash(email), now=Date.now();
-  for(const [id,item] of attempts)if(item.until<=now)attempts.delete(id);
-  const current=attempts.get(key)||{count:0,until:now+15*60_000};
-  if(current.count>=15||attempts.size>=2000)throw new Error('로그인 시도가 많습니다. 잠시 후 다시 시도하세요.');
-  current.count++;attempts.set(key,current);
+import {SESSION_COOKIE,SESSION_LIFETIME,createSession,deleteSession,hashValue,normalizeEmail,readAccount,readSession,sessionToken,validCredentials,verifyPassword,writeAccount,type AccountIdentity} from '../account-store';
+export {SESSION_COOKIE};
+export type {AccountIdentity};
+// Per-email window for every email; the short global window counts only emails with no account file, so floods of unknown emails never lock out real accounts. Old records are dropped instead of blocking everyone.
+export function createLoginLimiter({emailLimit=15,emailWindow=15*60_000,globalLimit=300,globalWindow=60_000,maxTracked=2000}={}){
+ const attempts=new Map<string,{count:number;until:number}>();
+ let global={count:0,until:0};
+ return {
+  attempt(email:string,now=Date.now(),known=false){
+   const key=hashValue(email);
+   for(const [id,item] of attempts)if(item.until<=now)attempts.delete(id);
+   if(global.until<=now)global={count:0,until:now+globalWindow};
+   const current=attempts.get(key)||{count:0,until:now+emailWindow};
+   if(current.count>=emailLimit||(!known&&global.count>=globalLimit))throw new Error('로그인 시도가 많습니다. 잠시 후 다시 시도하세요.');
+   current.count++;if(!known)global.count++;attempts.delete(key);attempts.set(key,current);
+   while(attempts.size>maxTracked)attempts.delete(attempts.keys().next().value as string);
+  },
+  success(email:string){attempts.delete(hashValue(email));},
+  get tracked(){return attempts.size;},
+ };
 }
-function cookie(request:Request){return request.headers.get('cookie')?.split(';').map(item=>item.trim()).find(item=>item.startsWith(SESSION_COOKIE+'='))?.slice(SESSION_COOKIE.length+1)||'';}
-export function sessionHeader(token:string, request:Request){return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${token?lifetime:0}${new URL(request.url).protocol==='https:'?'; Secure':''}`;}
-export async function currentAccount(request:Request):Promise<AccountIdentity|null>{
- const token=cookie(request);if(!/^[a-f0-9]{64}$/.test(token))return null;
- try{const filename=path.join(root,'sessions',hash(token)+'.json');const session=JSON.parse(await readFile(filename,'utf8'));if(session.expires<=Date.now()){await unlink(filename).catch(()=>{});return null;}return {name:session.name,email:session.email};}catch{return null;}
+const limiter=createLoginLimiter();
+export function signupEnabled(){
+ const flag=process.env.SIGNUP_ENABLED;
+ return flag===undefined||flag===''?process.env.NODE_ENV!=='production':flag==='true';
 }
-export async function endSession(request:Request){const token=cookie(request);if(/^[a-f0-9]{64}$/.test(token))await unlink(path.join(root,'sessions',hash(token)+'.json')).catch(()=>{});}
+export function sessionHeader(token:string, request:Request){return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${token?SESSION_LIFETIME:0}${new URL(request.url).protocol==='https:'?'; Secure':''}`;}
+export async function currentAccount(request:Request):Promise<AccountIdentity|null>{return readSession(sessionToken(request.headers.get('cookie')));}
+export async function endSession(request:Request){await deleteSession(sessionToken(request.headers.get('cookie')));}
 export async function authenticate(input:unknown){
  const data=input as Record<string,unknown>;
  if(!data||!['login','register'].includes(String(data.action)))throw new Error('요청을 확인해 주세요.');
- const email=typeof data.email==='string'?data.email.trim().toLowerCase():'';
+ if(data.action==='register'&&!signupEnabled())throw new Error('새 계정 가입이 닫혀 있습니다. 운영자에게 계정을 요청해 주세요.');
+ const email=normalizeEmail(data.email);
  const password=typeof data.password==='string'?data.password:'';
- if(email.length>254||!/^\S+@\S+\.\S+$/.test(email)||password.length<8||password.length>200)throw new Error('이메일과 8~200자 비밀번호를 입력해 주세요.');
- limit(email);
- await mkdir(path.join(root,'users'),{recursive:true});await mkdir(path.join(root,'sessions'),{recursive:true});
- const file=path.join(root,'users',hash(email)+'.json');let account:Account;
+ if(!validCredentials(email,password))throw new Error('이메일과 8~200자 비밀번호를 입력해 주세요.');
+ limiter.attempt(email,Date.now(),data.action==='login'&&Boolean(await readAccount(email)));
+ let identity:AccountIdentity;
  if(data.action==='register'){
    const name=typeof data.name==='string'?data.name.trim():'';if(!name||name.length>80)throw new Error('표시 이름을 1~80자로 입력해 주세요.');
-   const salt=randomBytes(16).toString('hex'),passwordHash=(await derive(password,salt,64) as Buffer).toString('hex');
-   account={name,email,salt,passwordHash};
-   try{await writeFile(file,JSON.stringify(account),{flag:'wx',mode:0o600});}catch{throw new Error('계정을 만들 수 없습니다. 이미 가입했다면 로그인해 주세요.');}
+   try{await writeAccount({name,email,password});}catch{throw new Error('계정을 만들 수 없습니다. 이미 가입했다면 로그인해 주세요.');}
+   identity={name,email};
  }else{
-   let found:Account|null=null;try{found=JSON.parse(await readFile(file,'utf8'));}catch{}
-   const actual=await derive(password,found?.salt||'missing-account-salt',64) as Buffer;
-   if(!found||!timingSafeEqual(actual,Buffer.from(found.passwordHash,'hex')))throw new Error('이메일 또는 비밀번호를 확인해 주세요.');
-   account=found;
+   const found=await verifyPassword(email,password);
+   if(!found)throw new Error('이메일 또는 비밀번호를 확인해 주세요.');
+   identity={name:found.name,email:found.email};
  }
- const token=randomBytes(32).toString('hex'),identity={name:account.name,email:account.email};
- await writeFile(path.join(root,'sessions',hash(token)+'.json'),JSON.stringify({...identity,expires:Date.now()+lifetime*1000}),{flag:'wx',mode:0o600});
- attempts.delete(hash(email));
+ const token=await createSession(identity);
+ limiter.success(email);
  return {token,identity};
 }

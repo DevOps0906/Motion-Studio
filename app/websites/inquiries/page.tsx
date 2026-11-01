@@ -1,9 +1,11 @@
 import {headers} from 'next/headers';
 import WebsiteInquiriesInbox from '../../../components/WebsiteInquiriesInbox';
 import {canReadRequirements} from '../../../lib/server/website-requirements';
+import {requirePageAccount} from '../../../lib/server/page-session';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export default async function WebsiteInquiriesPage(){
+ await requirePageAccount();
  const incoming=await headers();
  // Same rule as the API: operator session cookie, or localhost when no admin emails are configured.
  let allowed=false;

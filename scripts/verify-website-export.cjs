@@ -1,11 +1,11 @@
-// Temporary QA records only. Downloaded HTML and screenshots are retained in out/qa.
+process.env.VERIFY_BASE??=process.env.WEBSITE_QA_URL||'http://127.0.0.1:4110';const {authorizePage}=require('./verify-session.cjs');// Temporary QA records only. Downloaded HTML and screenshots are retained in out/qa.
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const {pathToFileURL} = require('node:url');
 const {randomUUID} = require('node:crypto');
 const assert = require('node:assert/strict');
 const {openBrowser} = require('@remotion/renderer');
-const base = process.env.WEBSITE_QA_URL || 'http://127.0.0.1:4110';
+const base = process.env.VERIFY_BASE;
 const title = `Export QA ${randomUUID()}`;
 let id, assetId, browser;
 async function json(url, options) {
@@ -35,7 +35,7 @@ async function wait(check) {
     assert.equal((await fetch(base + '/api/websites/not-found/export')).status, 404);
     browser = await openBrowser('chrome', {browserExecutable: process.env.REMOTION_BROWSER_EXECUTABLE || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', chromiumOptions: {headless: true}});
     const logs = [];
-    const page = await browser.newPage({context: () => null, logLevel: 'error', indent: false, pageIndex: 0, onBrowserLog: log => logs.push(log), onLog: () => {}});
+    const page = await browser.newPage({context: () => null, logLevel: 'error', indent: false, pageIndex: 0, onBrowserLog: log => logs.push(log), onLog: () => {}});await authorizePage(page);
     await page.setViewport({width: 1440, height: 1000, deviceScaleFactor: 1, isMobile: false, hasTouch: false});
     await page.goto({url: base + '/websites/editor/basic', timeout: 60000});
     await wait(() => page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).some(b => b.textContent.includes(name)), title));
@@ -92,7 +92,7 @@ async function wait(check) {
     console.log('PASS: section reorder/hide/save/reopen, actual HTML download, offline embedded image and desktop/mobile output');
   } finally {
     if (browser) await browser.close({silent: true});
-    if (id) {assert.match(id, /^[a-zA-Z0-9-]{1,80}$/); await fs.unlink(path.join('.local-data', 'websites', id + '.json'));}
+    if (id) {assert.match(id, /^[a-zA-Z0-9-]{1,80}$/); await fs.unlink(path.join('.local-data', 'websites', id + '.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}
     if (assetId) await json(`/api/media/${assetId}`, {method: 'DELETE'});
   }
 })().catch(error => {console.error(error); process.exitCode = 1;});

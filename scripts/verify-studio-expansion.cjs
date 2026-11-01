@@ -1,6 +1,6 @@
-const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const {authorizePage}=require('./verify-session.cjs');const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
 const {openBrowser}=require('@remotion/renderer'),{unzipSync,strFromU8}=require('fflate');
-const base=process.env.WEBSITE_QA_URL||'http://127.0.0.1:4101';
+const base=process.env.VERIFY_BASE||process.env.WEBSITE_QA_URL||'http://127.0.0.1:4101';
 let browser,websiteId,projectId;
 async function json(url,options){const r=await fetch(base+url,options),body=await r.json();assert.ok(r.ok,JSON.stringify(body));return body;}
 async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,250));}throw new Error('Expansion UI timeout');}
@@ -15,7 +15,7 @@ async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Pr
   const manifest=JSON.parse(strFromU8(archive['motion-studio.json']));assert.equal(manifest.capcutNativeProject,false);assert.equal(manifest.project.id,job.projectSnapshot.id);
   assert.ok(Object.keys(archive).some(name=>name.startsWith('media/')));assert.deepEqual(Buffer.from(archive['video/intro.mp4']),await fs.readFile(path.join('.local-data','render-files',job.id,'output.mp4')));report.capcutPackage=true;
   browser=await openBrowser('chrome',{browserExecutable:process.env.REMOTION_BROWSER_EXECUTABLE||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',chromiumOptions:{headless:true,gl:'swangle'}});
-  const page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:log=>logs.push(log),onLog:()=>{}});
+  const page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:log=>logs.push(log),onLog:()=>{}});await authorizePage(page);
   await fs.mkdir('out/qa',{recursive:true});await page.setViewport({width:1440,height:1000,deviceScaleFactor:1,isMobile:false,hasTouch:false});
   const routes=['/studio','/studio?view=templates','/websites','/gallery','/architecture/viewer','/showcase','/intro','/architecture','/exports','/references'];
   for(const route of routes){await page.goto({url:base+route,timeout:60000});await wait(()=>page.evaluate(()=>Boolean(document.querySelector('.app-gnb nav'))));
@@ -65,6 +65,6 @@ async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Pr
   report.mobileOverflow=false;report.logs=logs;await fs.writeFile('out/qa/studio-expansion-result.json',JSON.stringify(report,null,2));console.log('PASS',JSON.stringify(report));
  }finally{
   if(browser)await browser.close({silent:true});
-  for(const [dir,id] of [['websites',websiteId],['projects',projectId]])if(id){assert.match(id,/^[a-zA-Z0-9-]+$/);await fs.unlink(path.join('.local-data',dir,id+'.json'));}
+  for(const [dir,id] of [['websites',websiteId],['projects',projectId]])if(id){assert.match(id,/^[a-zA-Z0-9-]+$/);await fs.unlink(path.join('.local-data',dir,id+'.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}
  }
 })().catch(error=>{console.error(error);process.exitCode=1;});

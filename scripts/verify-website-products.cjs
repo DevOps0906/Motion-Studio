@@ -1,10 +1,10 @@
-const fs=require('fs/promises'),path=require('path'),assert=require('assert/strict'),{randomUUID}=require('crypto'),{openBrowser}=require('@remotion/renderer');
-const base='http://127.0.0.1:4101',brand='Product QA '+randomUUID().slice(0,8);let browser,id;
+const {authorizePage}=require('./verify-session.cjs');const fs=require('fs/promises'),path=require('path'),assert=require('assert/strict'),{randomUUID}=require('crypto'),{openBrowser}=require('@remotion/renderer');
+const base=process.env.VERIFY_BASE||'http://127.0.0.1:4101',brand='Product QA '+randomUUID().slice(0,8);let browser,id;
 async function wait(check){for(let i=0;i<100;i++){try{if(await check())return;}catch(e){if(!/context was destroyed/.test(e.message))throw e;}await new Promise(r=>setTimeout(r,100));}throw Error('Wait timeout');}
 async function shot(page,file){await fs.writeFile('out/qa/'+file,Buffer.from((await page._client().send('Page.captureScreenshot',{format:'png'})).value.data,'base64'));}
 (async()=>{try{
  browser=await openBrowser('chrome',{browserExecutable:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',chromiumOptions:{headless:true}});
- const page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:()=>{},onLog:()=>{}});
+ const page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:()=>{},onLog:()=>{}});await authorizePage(page);
  await page.setViewport({width:1440,height:1050,deviceScaleFactor:1,isMobile:false,hasTouch:false});
  await page.goto({url:base+'/websites',timeout:60000});
  assert.equal(await page.evaluate(()=>Array.from(document.querySelectorAll('.product-card h2')).map(e=>e.textContent).join(',')),'BASIC,BUSINESS,PREMIUM');

@@ -1,10 +1,10 @@
 const fs=require('fs/promises'),path=require('path'),assert=require('assert/strict'),{randomUUID,createHash}=require('crypto'),{DatabaseSync}=require('node:sqlite'),{pathToFileURL}=require('url'),{openBrowser}=require('@remotion/renderer');
-const base='http://127.0.0.1:4101',email='requirements-qa-'+randomUUID()+'@example.test';let browser,id;
+const base=process.env.VERIFY_BASE||'http://127.0.0.1:4101',email='requirements-qa-'+randomUUID()+'@example.test';let browser,id;
 async function wait(check){for(let i=0;i<100;i++){try{if(await check())return;}catch(e){if(!/context was destroyed/.test(e.message))throw e;}await new Promise(r=>setTimeout(r,100));}throw Error('Wait timeout');}
 async function shot(page,name){await fs.writeFile('out/qa/'+name,Buffer.from((await page._client().send('Page.captureScreenshot',{format:'png'})).value.data,'base64'));}
 (async()=>{try{
  const signup=await fetch(base+'/api/auth',{method:'POST',headers:{origin:base,'Content-Type':'application/json'},body:JSON.stringify({action:'register',name:'접수 QA 운영자',email,password:randomUUID()+'Aa9!'})});assert.equal(signup.status,200);const cookie=signup.headers.get('set-cookie').split(';')[0];
- assert.equal((await fetch(base+'/api/website-requirements')).status,403);
+ assert.equal((await fetch(base+'/api/website-requirements')).status,401);
  browser=await openBrowser('chrome',{browserExecutable:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',chromiumOptions:{headless:true}});
  const page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:()=>{},onLog:()=>{}});
  await page.setViewport({width:1440,height:1050,deviceScaleFactor:1,isMobile:false,hasTouch:false});

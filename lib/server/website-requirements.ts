@@ -16,7 +16,8 @@ export async function canReadRequirements(request:Request,options:{requireAdminL
  const account=await currentAccount(request);if(!account)return false;
  const allowed=(process.env.REQUIREMENTS_ADMIN_EMAILS||'').split(',').map(value=>value.trim().toLowerCase()).filter(Boolean);
  if(allowed.length)return allowed.includes(account.email.toLowerCase());
- if(options.requireAdminList)return false;
+ // production: no admin list means no operator (Host header is client-controlled).
+ if(options.requireAdminList||process.env.NODE_ENV==='production')return false;
  const hostname=new URL(request.url).hostname;
  return ['localhost','127.0.0.1','[::1]'].includes(hostname);
 }

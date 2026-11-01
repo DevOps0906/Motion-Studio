@@ -1,10 +1,10 @@
-// Creates temporary QA records; removes only those records in finally.
+process.env.VERIFY_BASE??=process.env.WEBSITE_QA_URL||'http://127.0.0.1:4110';const {authorizePage}=require('./verify-session.cjs');// Creates temporary QA records; removes only those records in finally.
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const {randomUUID} = require('node:crypto');
 const {openBrowser} = require('@remotion/renderer');
-const base = process.env.WEBSITE_QA_URL || 'http://127.0.0.1:4110';
+const base = process.env.VERIFY_BASE;
 const title = `Website QA ${randomUUID()}`;
 const created = [];
 let assetId, browser;
@@ -46,7 +46,7 @@ async function wait(check) {
     assert.equal((await fetch(base + '/api/websites', {method: 'POST', ...payload(data), headers: {'Content-Type': 'application/json', Origin: 'https://other.example'}})).status, 403);
     browser = await openBrowser('chrome', {browserExecutable: process.env.REMOTION_BROWSER_EXECUTABLE || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', chromiumOptions: {headless: true}});
     const logs = [];
-    const page = await browser.newPage({context: () => null, logLevel: 'error', indent: false, pageIndex: 0, onBrowserLog: log => logs.push(log), onLog: () => {}});
+    const page = await browser.newPage({context: () => null, logLevel: 'error', indent: false, pageIndex: 0, onBrowserLog: log => logs.push(log), onLog: () => {}});await authorizePage(page);
     await page.setViewport({width: 1600, height: 1000, deviceScaleFactor: 1, isMobile: false, hasTouch: false});
     await page.goto({url: base + '/websites/editor/basic', timeout: 60000});
     await wait(() => page.evaluate(name => Array.from(document.querySelectorAll('.website-project-list button')).some(b => b.textContent.includes(name)), title));
@@ -115,7 +115,7 @@ async function wait(check) {
     if (browser) await browser.close({silent: true});
     for (const id of created) {
       assert.match(id, /^[a-zA-Z0-9-]{1,80}$/);
-      await fs.unlink(path.join('.local-data', 'websites', `${id}.json`));
+      await fs.unlink(path.join('.local-data', 'websites', `${id}.json`)).catch(e=>{if(e.code!=='ENOENT')throw e;});
     }
     if (assetId) assert.equal((await json(`/api/media/${assetId}`, {method: 'DELETE'})).status, 200);
   }

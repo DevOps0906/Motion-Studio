@@ -1,8 +1,8 @@
-const fs = require('node:fs/promises');
+const {authorizePage}=require('./verify-session.cjs');const fs = require('node:fs/promises');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const {openBrowser} = require('@remotion/renderer');
-const base = process.env.WEBSITE_QA_URL || 'http://127.0.0.1:4101';
+const base = process.env.VERIFY_BASE || process.env.WEBSITE_QA_URL || 'http://127.0.0.1:4101';
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 async function wait(check) {for(let i=0;i<100;i++){if(await check())return;await new Promise(resolve=>setTimeout(resolve,250));}throw new Error('Sample media UI timeout');}
 (async()=>{
@@ -28,7 +28,7 @@ async function wait(check) {for(let i=0;i<100;i++){if(await check())return;await
   const browser=await openBrowser('chrome',{browserExecutable:process.env.REMOTION_BROWSER_EXECUTABLE||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',chromiumOptions:{headless:true,gl:'swangle'}});
   const logs=[];
   try{
-    const page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:log=>logs.push(log),onLog:()=>{}});
+    const page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:log=>logs.push(log),onLog:()=>{}});await authorizePage(page);
     await fs.mkdir('out/qa',{recursive:true});
     await page.setViewport({width:1600,height:1100,deviceScaleFactor:1,isMobile:false,hasTouch:false});
     await page.goto({url:base+'/studio',timeout:60000});

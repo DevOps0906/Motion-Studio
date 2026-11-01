@@ -1,6 +1,6 @@
-const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const {authorizePage}=require('./verify-session.cjs');const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
 const {unzipSync,strFromU8}=require('fflate'),sharp=require('sharp'),{openBrowser}=require('@remotion/renderer');
-const base=process.env.WEBSITE_QA_URL||'http://127.0.0.1:4101',ids=[];let assetId,browser;
+const base=process.env.VERIFY_BASE||process.env.WEBSITE_QA_URL||'http://127.0.0.1:4101',ids=[];let assetId,browser;
 const payload=value=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
 async function json(url,options){const response=await fetch(base+url,options),body=await response.json();assert.ok(response.ok,JSON.stringify(body));return body;}
 async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,250));}throw new Error('Blog skin UI timeout');}
@@ -19,7 +19,7 @@ async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Pr
  const rgba=await sharp(archive['transparent-170x100.png']).ensureAlpha().raw().toBuffer();assert.ok(rgba.every((value,index)=>index%4!==3||value===0));
  await fs.mkdir('out/qa',{recursive:true});await fs.writeFile('out/qa/blog-skin-with-images.png',archive['skin-background-1920x900.png']);
  browser=await openBrowser('chrome',{browserExecutable:process.env.REMOTION_BROWSER_EXECUTABLE||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',chromiumOptions:{headless:true}});
- const logs=[],page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:log=>logs.push(log),onLog:()=>{}});
+ const logs=[],page=await browser.newPage({context:()=>null,logLevel:'error',indent:false,pageIndex:0,onBrowserLog:log=>logs.push(log),onLog:()=>{}});await authorizePage(page);
  await page.setViewport({width:1440,height:1050,deviceScaleFactor:1,isMobile:false,hasTouch:false});await page.goto({url:base+'/blog-skins',timeout:60000});await wait(()=>page.evaluate(()=>!document.querySelector('.blog-skin-form fieldset').disabled));
  assert.equal(await page.evaluate(()=>document.querySelectorAll('.app-gnb').length),1);assert.ok(await page.evaluate(()=>Boolean(document.querySelector('.maker-reference-bar'))));
 
@@ -60,5 +60,5 @@ async function wait(fn){for(let i=0;i<120;i++){if(await fn())return;await new Pr
  shot=await page._client().send('Page.captureScreenshot',{format:'png'});await fs.writeFile('out/qa/blog-builder-mobile.png',Buffer.from(shot.value.data,'base64'));
  await fs.writeFile('out/qa/blog-skin-result.json',JSON.stringify({apiSave:true,selectedImagePreviews:true,logoContain:true,clearPreviews:true,uiImport:true,uiSave:true,reopen:true,resvgPreview:true,embeddedImages:true,transparentAlpha:true,widgets:true,uiZipDownload:true,imageProtection:true,mobileOverflow:false,naverAccountInstallation:false,logs},null,2));
  console.log('PASS: blog metadata import/save/reopen, resvg preview with images, transparent widgets, coordinates, actual ZIP download, image protection and desktop/mobile layout');
- }finally{if(browser)await browser.close({silent:true});for(const id of ids){assert.match(id,/^[a-zA-Z0-9-]+$/);await fs.unlink(path.join('.local-data','blog-skins',id+'.json'));}if(assetId)await json('/api/media/'+assetId,{method:'DELETE'});}
+ }finally{if(browser)await browser.close({silent:true});for(const id of ids){assert.match(id,/^[a-zA-Z0-9-]+$/);await fs.unlink(path.join('.local-data','blog-skins',id+'.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}if(assetId)await json('/api/media/'+assetId,{method:'DELETE'});}
 })().catch(error=>{console.error(error);process.exitCode=1;});
