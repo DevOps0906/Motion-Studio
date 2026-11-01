@@ -216,7 +216,7 @@ assert.equal(websiteCtaHref({...emptyReviews,sections:[allSections[3],allSection
  const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
  const compiled=ts.transpileModule(fs.readFileSync('components/WebsitePreview.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  const preview={exports:{}};
- vm.runInNewContext(compiled,{module:preview,exports:preview.exports,require:id=>id.startsWith('react')?require(id):loadTs(path.join('components',id+'.ts'))});
+ vm.runInNewContext(compiled,{module:preview,exports:preview.exports,require:id=>id.startsWith('react')?require(id):id==='./WebsiteInquiryForm'?{default:()=>null}:loadTs(path.join('components',id+'.ts'))});
  const markup=brief=>renderToStaticMarkup(React.createElement(preview.exports.default,{brief}));
  assert.ok(!markup(emptyReviews).includes('data-website-section="testimonials"')&&!markup(emptyReviews).includes('data-website-section="faq"'));
  assert.ok(markup({...emptyReviews,faqs:[{question:'질문',answer:'답'}]}).includes('data-website-section="faq"'));

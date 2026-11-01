@@ -2,8 +2,9 @@
 import type {CSSProperties} from 'react';
 import {resolveWebsitePage, websiteCtaHref, safeWebsiteLink, type WebsiteBrief, type WebsitePage} from '../lib/website';
 import {WEBSITE_PREVIEW_CSS} from '../lib/website-styles';
+import WebsiteInquiryForm from './WebsiteInquiryForm';
 
-export default function WebsitePreview({brief,page,onNavigate,previewBase}: {brief: WebsiteBrief;page?:WebsitePage;onNavigate?:(id:string)=>void;previewBase?:string}) {
+export default function WebsitePreview({brief,page,onNavigate,previewBase,websiteId}: {brief: WebsiteBrief;page?:WebsitePage;onNavigate?:(id:string)=>void;previewBase?:string;websiteId?:string}) {
   const current = resolveWebsitePage(brief,page);
   const ctaHref = websiteCtaHref(current);
   const contactHref = safeWebsiteLink(current.contactUrl);
@@ -25,7 +26,7 @@ export default function WebsitePreview({brief,page,onNavigate,previewBase}: {bri
         <div className="website-service-grid">{current.testimonials.map((item, i) => <article key={i}><p>{item.quote}</p>{item.name && <span>{item.name}</span>}</article>)}</div></section>;
       if (section.id === 'faq') return !current.faqs.length ? null : <section key={section.id} id="website-faq" className="website-content-section" data-website-section="faq"><div className="website-eyebrow">FAQ</div><h2>{current.faqHeading || '자주 묻는 질문'}</h2>
         <dl className="website-faq-list">{current.faqs.map((item, i) => <div key={i}><dt>{item.question}</dt><dd>{item.answer}</dd></div>)}</dl></section>;
-      if (section.id === 'contact') return <section key={section.id} id="website-contact" className="website-content-section website-contact" data-website-section="contact"><div className="website-eyebrow">NEXT CHAPTER</div><h2>{current.contactHeading || '함께 다음 장면을 만드세요.'}</h2>{current.contactText && <p>{current.contactText}</p>}{contactHref && <a className="website-cta" href={contactHref}>{current.ctaLabel || '브랜드 알아보기'} <span aria-hidden="true">↗</span></a>}</section>;
+      if (section.id === 'contact') return <section key={section.id} id="website-contact" className="website-content-section website-contact" data-website-section="contact"><div className="website-eyebrow">NEXT CHAPTER</div><h2>{current.contactHeading || '함께 다음 장면을 만드세요.'}</h2>{current.contactText && <p>{current.contactText}</p>}{contactHref && <a className="website-cta" href={contactHref}>{current.ctaLabel || '브랜드 알아보기'} <span aria-hidden="true">↗</span></a>}{current.inquiryForm && <WebsiteInquiryForm websiteId={websiteId}/>}</section>;
       return <section key={section.id} id="website-services" className="website-services" data-website-section="services"><div className="website-eyebrow">WHAT WE DO</div><h2>우리가 만드는 가치</h2>
         <div className="website-service-grid">{current.services.filter(s => s.trim()).map((service, i) => <article key={i}><span>{String(i + 1).padStart(2, '0')}</span><h3>{service}</h3></article>)}</div>
       </section>;

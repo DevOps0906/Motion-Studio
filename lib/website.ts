@@ -51,6 +51,7 @@ export type WebsiteBrief = {
   designPreset: 'studio' | 'editorial' | 'gallery';
   referenceTitle: string;
   pages: WebsitePage[];
+  inquiryForm: boolean;
 };
 
 export type WebsiteProject = WebsiteBrief & {
@@ -69,7 +70,7 @@ export const EMPTY_WEBSITE: WebsiteBrief = {
   aboutHeading: '우리의 이야기', aboutBody: '', contactHeading: '함께 다음 장면을 만드세요.', contactText: '', contactUrl: '',
   testimonialsHeading: '고객 후기', testimonials: [], faqHeading: '자주 묻는 질문', faqs: [],
   designPreset: 'studio', referenceTitle: '', designKit: 'original',
-  pages: [],
+  pages: [], inquiryForm: false,
 };
 
 export function safeWebsiteLink(value: string) {
@@ -191,10 +192,12 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
     return value.trim();
   }
   const testimonials = items('testimonials', 6, '고객 후기는 최대 6개까지 입력할 수 있습니다.').map(item => ({quote: itemText(item.quote, true, '후기 내용'), name: itemText(item.name, false, '후기 작성자')}));
+  if (data.inquiryForm !== undefined && typeof data.inquiryForm !== 'boolean') throw new Error('문의 폼 사용 여부를 확인해 주세요.');
+  const inquiryForm = data.inquiryForm === true;
   const faqs = items('faqs', 8, '자주 묻는 질문은 최대 8개까지 입력할 수 있습니다.').map(item => ({question: itemText(item.question, true, '질문'), answer: itemText(item.answer, true, '답변')}));
   return {title, brand, headline, description, audience, referenceUrl, ctaLabel, accent,
     theme: data.theme, heroImageId, services: data.services.map(s => (s as string).trim()),
-    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, testimonialsHeading, testimonials, faqHeading, faqs, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief), pages};
+    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, testimonialsHeading, testimonials, faqHeading, faqs, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief), pages, inquiryForm};
 }
 
 // Blank review rows are editor scratch space; drop them before strict validation on save.

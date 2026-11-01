@@ -15,5 +15,5 @@ export default async function WebsitePage({params,searchParams}: {params: Promis
   const pageId=query.page;
   const page=typeof pageId==='string'?project.pages.find(item=>item.id===pageId):undefined;
   if(pageId!==undefined&&!page)notFound();
-  return <main className="website-saved"><div className="website-saved-bar"><a className="button" href="/websites">← 웹사이트 제작기</a><span>저장된 미리보기 · {project.title}</span></div><WebsitePreview brief={project} page={page} previewBase={`/websites/${encodeURIComponent(id)}`}/></main>;
+  return <main className="website-saved"><div className="website-saved-bar"><a className="button" href="/websites">← 웹사이트 제작기</a><span>저장된 미리보기 · {project.title}</span></div><WebsitePreview brief={project} page={page} previewBase={`/websites/${encodeURIComponent(id)}`} websiteId={project.inquiryForm?project.id:undefined}/></main>;
 }
