@@ -11,10 +11,12 @@ function db(){
  if(!database){const root=path.join(process.cwd(),'.local-data');mkdirSync(root,{recursive:true});database=new DatabaseSync(path.join(root,'requirements.sqlite'));database.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS submissions(id TEXT PRIMARY KEY, submission_key TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL, contact TEXT NOT NULL, answers TEXT NOT NULL, recommendation TEXT NOT NULL, consent_version TEXT NOT NULL); CREATE INDEX IF NOT EXISTS submissions_date ON submissions(created_at);`);}
  database.prepare('DELETE FROM submissions WHERE created_at < ?').run(new Date(Date.now()-90*86400000).toISOString());return database;
 }
-export async function canReadRequirements(request:Request){
+// requireAdminList: operator-only features (paid AI) are off when REQUIREMENTS_ADMIN_EMAILS is empty, even on localhost.
+export async function canReadRequirements(request:Request,options:{requireAdminList?:boolean}={}){
  const account=await currentAccount(request);if(!account)return false;
  const allowed=(process.env.REQUIREMENTS_ADMIN_EMAILS||'').split(',').map(value=>value.trim().toLowerCase()).filter(Boolean);
  if(allowed.length)return allowed.includes(account.email.toLowerCase());
+ if(options.requireAdminList)return false;
  const hostname=new URL(request.url).hostname;
  return ['localhost','127.0.0.1','[::1]'].includes(hostname);
 }

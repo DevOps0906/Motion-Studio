@@ -10,6 +10,7 @@ import WebsitePreview from './WebsitePreview';
 import WebsitePagesEditor from './WebsitePagesEditor';
 import WebsiteProductionForm from './WebsiteProductionForm';
 import WebsiteReferencePicker from './WebsiteReferencePicker';
+import WebsiteDraftPanel from './WebsiteDraftPanel';
 import {referenceDesign,type ReferenceCard} from '../lib/website-references';
 import {importWebsiteMetadata} from '../lib/website-metadata';
 
@@ -31,6 +32,8 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
   const [notice, setNotice] = useState(''), [mediaError, setMediaError] = useState('');
   const [previewWidth, setPreviewWidth] = useState<'desktop' | 'mobile'>('desktop');
   const [activePageId, setActivePageId] = useState('index');
+  // Bumped on every project switch so the draft panel drops its pending draft and undo snapshot.
+  const [draftSession, setDraftSession] = useState(0);
   const busy = loading || saving || exporting;
   const activeType=brief.productionBrief?.tier||initialType;
   const metadataInput=useRef<HTMLInputElement>(null);
@@ -77,7 +80,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
     if (dirty && !window.confirm('저장하지 않은 변경을 버리고 이동할까요?')) return;
     setBrief(project ? {...project, services: [...project.services]} : {...websiteTypeBrief(initialType),theme:loadProductionSettings().websiteTheme,accent:loadProductionSettings().websiteAccent});
     setActivePageId('index');
-    setSelectedId(project?.id ?? ''); setDirty(false); setError(''); setNotice(project ? '저장된 프로젝트를 열었습니다.' : '새 프로젝트를 시작합니다.');
+    setSelectedId(project?.id ?? ''); setDraftSession(value => value + 1); setDirty(false); setError(''); setNotice(project ? '저장된 프로젝트를 열었습니다.' : '새 프로젝트를 시작합니다.');
   }
   function moveSection(index: number, offset: number) {
     const sections = [...brief.sections];
@@ -133,6 +136,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
         <div className="section-head"><h2>브랜드 브리프</h2><span className="save-state">{saving ? '저장 중…' : dirty ? '저장하지 않은 변경' : selectedId ? '저장됨' : '새 프로젝트'}</span></div>
         <div className="metadata-import"><button type="button" disabled={busy} onClick={()=>metadataInput.current?.click()}>홈페이지 정보 JSON 가져오기</button><a href="/templates/website-metadata.sample.json" download>메타데이터 양식 ↓</a><p className="small">브랜드·소개·서비스·문의 정보를 페이지 초안으로 구성합니다.</p><input className="website-metadata-input" ref={metadataInput} hidden type="file" accept=".json,.jsonld,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void importMetadata(file);}}/></div>
         <WebsiteReferencePicker disabled={busy} onChoose={chooseReference}/>
+        <WebsiteDraftPanel key={draftSession} brief={brief} disabled={busy} onChange={(value,message)=>{setBrief(value);setDirty(true);setError('');setNotice(message);}}/>
         <fieldset disabled={busy}>
           <WebsitePagesEditor brief={brief} activePageId={activePageId} onSelect={setActivePageId} onChange={pages=>edit('pages',pages)} onAdd={addPage} media={media}/>
           <label>프로젝트 이름<input name="title" required maxLength={120} value={brief.title} placeholder="예: 스튜디오 소개 페이지" onChange={e => edit('title', e.target.value)}/></label>
