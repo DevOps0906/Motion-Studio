@@ -272,3 +272,33 @@ assert.equal(websiteCtaHref({...emptyReviews,sections:[allSections[3],allSection
  assert.equal(websiteSectionUsed({...home,sections:home.sections.map(s=>s.id==='testimonials'?{...s,enabled:true}:s)},'testimonials'),true);
  console.log('PASS: blank testimonial/FAQ rows dropped before save while partial FAQ stays invalid; fields shown when any page enables the section');
 }
+
+{
+ const {suggestPageAddress,isDefaultPageAddress}=loadTs('lib/website-page-address.ts');
+ const re=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+ assert.equal(suggestPageAddress('Our Story!',[],'new-page').address,'our-story');
+ assert.equal(suggestPageAddress('회사 소개',[],'new-page').address,'about');
+ assert.equal(suggestPageAddress('오시는 길',[],'new-page').address,'location');
+ assert.equal(suggestPageAddress('자주 묻는 질문',[],'new-page').address,'faq');
+ assert.equal(suggestPageAddress('팀',[],'new-page').address,'team');
+ const unknown=suggestPageAddress('마법의 정원',['new-page'],'new-page');
+ assert.deepEqual([unknown.address,unknown.matched],['new-page',false]);
+ assert.equal(suggestPageAddress('서비스',['about','services'],'new-page').address,'services-2');
+ assert.equal(suggestPageAddress('서비스',['services','services-2'],'new-page').address,'services-3');
+ assert.equal(suggestPageAddress('About',['about'],'about').address,'about');
+ assert.notEqual(suggestPageAddress('index',[],'new-page').address,'index');
+ const long=suggestPageAddress('a'.repeat(80),[],'new-page').address;
+ assert.ok(long.length<=48&&re.test(long));
+ const longDup=suggestPageAddress('a'.repeat(80),['a'.repeat(48)],'new-page').address;
+ assert.ok(longDup.length<=48&&re.test(longDup)&&longDup.endsWith('-2'));
+ assert.ok(isDefaultPageAddress('new-page')&&isDefaultPageAddress('new-page-12')&&!isDefaultPageAddress('about'));
+ assert.equal(suggestPageAddress('작업 문의',[],'new-page').address,'contact');
+ assert.equal(suggestPageAddress('팀원 소개',[],'new-page').address,'about');
+ assert.equal(suggestPageAddress('2024 후기',[],'new-page').address,'reviews');
+ assert.equal(suggestPageAddress('서비스 A',[],'new-page').address,'services');
+ const steam=suggestPageAddress('스팀',['new-page'],'new-page');
+ assert.deepEqual([steam.address,steam.matched],['new-page',false]);
+ const mixed=suggestPageAddress('마법 Garden',['new-page'],'new-page');
+ assert.deepEqual([mixed.address,mixed.matched],['new-page',false]);
+ console.log('PASS: page address suggestion (latin, Korean dictionary, unknown, duplicate, index, length)');
+}

@@ -32,6 +32,9 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
   const [notice, setNotice] = useState(''), [mediaError, setMediaError] = useState('');
   const [previewWidth, setPreviewWidth] = useState<'desktop' | 'mobile'>('desktop');
   const [activePageId, setActivePageId] = useState('index');
+  const [autoIds, setAutoIds] = useState<string[]>([]);
+  const pendingFocus = useRef('');
+  const [missing, setMissing] = useState<{label:string;pageId?:string;field:string}[]>([]);
   // Bumped on every project switch so the draft panel drops its pending draft and undo snapshot.
   const [draftSession, setDraftSession] = useState(0);
   const busy = loading || saving || exporting;
@@ -67,19 +70,20 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
   }, [dirty]);
 
   function edit<K extends keyof WebsiteBrief>(key: K, value: WebsiteBrief[K]) {
-    setBrief(current => ({...current, [key]: value})); setDirty(true); setNotice('');
+    setBrief(current => ({...current, [key]: value})); setDirty(true); setNotice(''); setMissing([]);
   }
   function addPage() {
     if (brief.pages.length >= 12) return;
     const base = 'new-page'; let id = base, index = 2;
     while (brief.pages.some(page => page.id === id)) id = `${base}-${index++}`;
     edit('pages', [...brief.pages, {id, title:'새 페이지', headline:'새 페이지 제목', description:'이 페이지에서 전할 내용을 입력하세요.', sections:brief.sections.map(section=>({...section}))}]);
-    setActivePageId(id);
+    setActivePageId(id); setAutoIds(current => [...current, id]);
   }
+  function selectPage(id: string) { setActivePageId(id); setMissing([]); }
   function open(project?: WebsiteProject) {
     if (dirty && !window.confirm('저장하지 않은 변경을 버리고 이동할까요?')) return;
     setBrief(project ? {...project, services: [...project.services]} : {...websiteTypeBrief(initialType),theme:loadProductionSettings().websiteTheme,accent:loadProductionSettings().websiteAccent});
-    setActivePageId('index');
+    setActivePageId('index'); setAutoIds([]); setMissing([]);
     setSelectedId(project?.id ?? ''); setDraftSession(value => value + 1); setDirty(false); setError(''); setNotice(project ? '저장된 프로젝트를 열었습니다.' : '새 프로젝트를 시작합니다.');
   }
   function moveSection(index: number, offset: number) {
@@ -108,8 +112,43 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
     } catch (cause) { setError(cause instanceof Error ? cause.message : '내보내지 못했습니다.'); }
     finally { setExporting(false); }
   }
+  useEffect(() => {
+    if (!pendingFocus.current) return;
+    document.querySelector<HTMLElement>(`.website-brief [name="${pendingFocus.current}"]`)?.focus();
+    pendingFocus.current = '';
+  }, [activePageId, missing]);
+  function findMissing() {
+    const list: {label:string;pageId?:string;field:string}[] = [];
+    for (const page of brief.pages) {
+      const name = page.title.trim() || '이름 없는 페이지';
+      if (!page.title.trim()) list.push({label:`페이지 '${name}': 페이지 이름`, pageId:page.id, field:'pageTitle'});
+      if (!page.headline.trim()) list.push({label:`페이지 '${name}': 첫 화면 제목`, pageId:page.id, field:'pageHeadline'});
+      if (page.content) {
+        const items = page.content.services;
+        if (items.length < 1 || items.length > 6 || items.some(item => !item.trim() || item.length > 100)) list.push({label:`페이지 '${name}': 서비스 (1~6개, 빈 줄 없이 항목별 100자 이하)`, pageId:page.id, field:'pageServices'});
+        if (page.content.contactUrl.trim() && !safeWebsiteLink(page.content.contactUrl.trim())) list.push({label:`페이지 '${name}': 문의 링크 (http 또는 https 주소)`, pageId:page.id, field:'pageContactUrl'});
+      }
+      if (page.content && !page.content.ctaLabel.trim()) list.push({label:`페이지 '${name}': 버튼 문구`, pageId:page.id, field:'pageCtaLabel'});
+    }
+    if (!brief.title.trim()) list.push({label:'프로젝트 이름', field:'title'});
+    if (!brief.brand.trim()) list.push({label:'브랜드명', field:'brand'});
+    if (!brief.headline.trim()) list.push({label:'핵심 문구', field:'headline'});
+    if (!brief.description.trim()) list.push({label:'브랜드 소개', field:'description'});
+    if (brief.services.length < 1 || brief.services.length > 6 || brief.services.some(item => !item.trim() || item.length > 100)) list.push({label:'서비스 (1~6개, 빈 줄 없이 항목별 100자 이하)', field:'services'});
+    if (!brief.ctaLabel.trim()) list.push({label:'버튼 문구', field:'ctaLabel'});
+    if (brief.referenceUrl.trim() && !safeWebsiteLink(brief.referenceUrl.trim())) list.push({label:'참고 사이트 URL (http 또는 https 주소)', field:'referenceUrl'});
+    if (brief.contactUrl.trim() && !safeWebsiteLink(brief.contactUrl.trim())) list.push({label:'문의 링크 (http 또는 https 주소)', field:'contactUrl'});
+    return list;
+  }
   async function save(event: FormEvent) {
     event.preventDefault(); setError(''); setNotice('');
+    const lacking = findMissing(); setMissing(lacking);
+    if (lacking.length) {
+      const first = lacking[0];
+      if (first.pageId) setActivePageId(first.pageId);
+      pendingFocus.current = first.field;
+      return;
+    }
     try {
       const valid = validateWebsiteBrief(dropEmptyReviewItems(brief)); setSaving(true);
       const project = await request<WebsiteProject>(selectedId ? `/api/websites/${selectedId}` : '/api/websites', {
@@ -132,25 +171,25 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
         <button className="quiet" disabled={busy} onClick={() => void load()}>목록 다시 불러오기</button>
         <a className="button" href="/studio?view=media">공유 미디어 등록 ↗</a>
       </aside>
-      <form className="website-brief panel" onSubmit={save}>
+      <form className="website-brief panel" onSubmit={save} noValidate>
         <div className="section-head"><h2>브랜드 브리프</h2><span className="save-state">{saving ? '저장 중…' : dirty ? '저장하지 않은 변경' : selectedId ? '저장됨' : '새 프로젝트'}</span></div>
         <div className="metadata-import"><button type="button" disabled={busy} onClick={()=>metadataInput.current?.click()}>홈페이지 정보 JSON 가져오기</button><a href="/templates/website-metadata.sample.json" download>메타데이터 양식 ↓</a><p className="small">브랜드·소개·서비스·문의 정보를 페이지 초안으로 구성합니다.</p><input className="website-metadata-input" ref={metadataInput} hidden type="file" accept=".json,.jsonld,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void importMetadata(file);}}/></div>
         <WebsiteReferencePicker disabled={busy} onChoose={chooseReference}/>
         <WebsiteDraftPanel key={draftSession} brief={brief} disabled={busy} onChange={(value,message)=>{setBrief(value);setDirty(true);setError('');setNotice(message);}}/>
         <fieldset disabled={busy}>
-          <WebsitePagesEditor brief={brief} activePageId={activePageId} onSelect={setActivePageId} onChange={pages=>edit('pages',pages)} onAdd={addPage} media={media}/>
-          <label>프로젝트 이름<input name="title" required maxLength={120} value={brief.title} placeholder="예: 스튜디오 소개 페이지" onChange={e => edit('title', e.target.value)}/></label>
-          <label>브랜드명<input name="brand" required maxLength={80} value={brief.brand} placeholder="예: MOTION ATELIER" onChange={e => edit('brand', e.target.value)}/></label>
-          <label>핵심 문구<input name="headline" required maxLength={160} value={brief.headline} placeholder="브랜드가 전할 한 문장" onChange={e => edit('headline', e.target.value)}/></label>
-          <label>브랜드 소개<textarea name="description" required maxLength={1200} rows={4} value={brief.description} placeholder="무엇을 만들고 어떤 가치를 제공하나요?" onChange={e => edit('description', e.target.value)}/></label>
+          <WebsitePagesEditor brief={brief} activePageId={activePageId} onSelect={selectPage} onChange={pages=>edit('pages',pages)} onAdd={addPage} autoIds={autoIds} onAutoIds={setAutoIds} media={media}/>
+          <label>프로젝트 이름 <span className="required-mark" aria-hidden="true">*</span><input name="title" aria-required="true" maxLength={120} value={brief.title} placeholder="예: 스튜디오 소개 페이지" onChange={e => edit('title', e.target.value)}/></label>
+          <label>브랜드명 <span className="required-mark" aria-hidden="true">*</span><input name="brand" aria-required="true" maxLength={80} value={brief.brand} placeholder="예: MOTION ATELIER" onChange={e => edit('brand', e.target.value)}/></label>
+          <label>핵심 문구 <span className="required-mark" aria-hidden="true">*</span><input name="headline" aria-required="true" maxLength={160} value={brief.headline} placeholder="브랜드가 전할 한 문장" onChange={e => edit('headline', e.target.value)}/></label>
+          <label>브랜드 소개 <span className="required-mark" aria-hidden="true">*</span><textarea name="description" aria-required="true" maxLength={1200} rows={4} value={brief.description} placeholder="무엇을 만들고 어떤 가치를 제공하나요?" onChange={e => edit('description', e.target.value)}/></label>
           <label>대상 고객<input maxLength={200} value={brief.audience} placeholder="예: 새로운 공간을 준비하는 브랜드" onChange={e => edit('audience', e.target.value)}/></label>
-          <label>참고 사이트 URL · 선택<input type="url" maxLength={2000} value={brief.referenceUrl} placeholder="https://example.com" onChange={e => edit('referenceUrl', e.target.value)}/></label>
+          <label>참고 사이트 URL · 선택<input type="url" name="referenceUrl" maxLength={2000} value={brief.referenceUrl} placeholder="https://example.com" onChange={e => edit('referenceUrl', e.target.value)}/></label>
           {brief.referenceTitle&&<p className="small">선택한 레퍼런스: {brief.referenceTitle}</p>}
           <label>디자인 방향<select aria-label="디자인 방향" value={brief.designPreset} onChange={e=>edit('designPreset',e.target.value as WebsiteBrief['designPreset'])}><option value="studio">프리미엄 스튜디오</option><option value="editorial">에디토리얼 · 건축/브랜드</option><option value="gallery">갤러리 · 포트폴리오</option></select></label>
           <label>디자인 키트<select aria-label="디자인 키트" value={brief.designKit || 'original'} onChange={e=>edit('designKit',e.target.value as WebsiteBrief['designKit'])}>{Object.entries(WEBSITE_DESIGN_KITS).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
           <p className="small">서체·여백·모서리·첫 화면 모션을 함께 적용합니다. 브랜드 내용과 레이아웃은 유지됩니다.</p>
-          <label>서비스 · 한 줄에 하나, 최대 6개<textarea rows={4} value={brief.services.join('\n')} onChange={e => edit('services', e.target.value.split('\n'))}/></label>
-          <label>버튼 문구<input required maxLength={40} value={brief.ctaLabel} onChange={e => edit('ctaLabel', e.target.value)}/></label>
+          <label>서비스 <span className="required-mark" aria-hidden="true">*</span> · 한 줄에 하나, 최대 6개<textarea name="services" aria-required="true" rows={4} value={brief.services.join('\n')} onChange={e => edit('services', e.target.value.split('\n'))}/></label>
+          <label>버튼 문구 <span className="required-mark" aria-hidden="true">*</span><input name="ctaLabel" aria-required="true" maxLength={40} value={brief.ctaLabel} onChange={e => edit('ctaLabel', e.target.value)}/></label>
           <div className="website-brief-colors"><label>강조색<input type="color" value={brief.accent} onChange={e => edit('accent', e.target.value)}/></label><label>테마<select value={brief.theme} onChange={e => edit('theme', e.target.value as WebsiteBrief['theme'])}><option value="dark">다크</option><option value="light">라이트</option></select></label></div>
           <label>대표 이미지 · 선택<select value={brief.heroImageId} onChange={e => edit('heroImageId', e.target.value)}><option value="">그래픽 배경 사용</option>{brief.heroImageId && !media.some(m => m.id === brief.heroImageId) && <option value={brief.heroImageId}>기존 이미지 · 목록 확인 필요</option>}{media.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label>
           {mediaError && <p className="small">{mediaError}</p>}
@@ -158,7 +197,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
             <ol>{brief.sections.map((section, index) => <li key={section.id} data-section-editor={section.id}><label className="check"><input type="checkbox" checked={section.enabled} onChange={e => edit('sections', brief.sections.map(item => item.id === section.id ? {...item, enabled: e.target.checked} : item))}/>{WEBSITE_SECTION_LABELS[section.id]}</label><div className="actions"><button type="button" disabled={index === 0} aria-label={`${WEBSITE_SECTION_LABELS[section.id]} 위로`} onClick={() => moveSection(index, -1)}>↑</button><button type="button" disabled={index === brief.sections.length - 1} aria-label={`${WEBSITE_SECTION_LABELS[section.id]} 아래로`} onClick={() => moveSection(index, 1)}>↓</button></div></li>)}</ol>
           </div>
           {brief.sections.some(section => section.id === 'about' && section.enabled) && <div className="website-section-fields"><h3>소개 섹션</h3><label>소개 제목<input maxLength={120} value={brief.aboutHeading} onChange={e => edit('aboutHeading', e.target.value)}/></label><label>소개 본문 · 비우면 브랜드 소개 사용<textarea rows={4} maxLength={1200} value={brief.aboutBody} onChange={e => edit('aboutBody', e.target.value)}/></label></div>}
-          {brief.sections.some(section => section.id === 'contact' && section.enabled) && <div className="website-section-fields"><h3>문의 섹션</h3><label>문의 제목<input maxLength={120} value={brief.contactHeading} onChange={e => edit('contactHeading', e.target.value)}/></label><label>문의 안내<textarea rows={3} maxLength={1200} value={brief.contactText} onChange={e => edit('contactText', e.target.value)}/></label><label>문의 링크 · 선택<input type="url" maxLength={2000} placeholder="https://example.com/contact" value={brief.contactUrl} onChange={e => edit('contactUrl', e.target.value)}/></label></div>}
+          {brief.sections.some(section => section.id === 'contact' && section.enabled) && <div className="website-section-fields"><h3>문의 섹션</h3><label>문의 제목<input maxLength={120} value={brief.contactHeading} onChange={e => edit('contactHeading', e.target.value)}/></label><label>문의 안내<textarea rows={3} maxLength={1200} value={brief.contactText} onChange={e => edit('contactText', e.target.value)}/></label><label>문의 링크 · 선택<input type="url" name="contactUrl" maxLength={2000} placeholder="https://example.com/contact" value={brief.contactUrl} onChange={e => edit('contactUrl', e.target.value)}/></label></div>}
           {websiteSectionUsed(brief, 'contact') && <div className="website-section-fields"><h3>문의 폼</h3><label className="check"><input type="checkbox" checked={brief.inquiryForm} onChange={e => edit('inquiryForm', e.target.checked)}/>문의 폼 사용</label><p className="small">문의 섹션을 켠 모든 페이지의 저장된 미리보기에 문의 폼이 표시되고, 접수 내역은 웹사이트 문의함에서 확인합니다. 외부 알림에는 개인정보가 담기지 않습니다. 내보낸 HTML·ZIP에는 폼이 포함되지 않습니다.</p></div>}
           {websiteSectionUsed(brief, 'testimonials') && <div className="website-section-fields"><h3>고객 후기 섹션</h3><p className="small">후기 문구는 이 섹션을 켠 모든 페이지가 공유합니다. 빈 후기는 저장할 때 제외됩니다.</p><label>후기 제목<input maxLength={120} value={brief.testimonialsHeading} onChange={e => edit('testimonialsHeading', e.target.value)}/></label>
             {brief.testimonials.map((item, index) => <fieldset key={index}><legend>후기 {index + 1}</legend><label>후기 내용<textarea rows={3} maxLength={300} value={item.quote} onChange={e => edit('testimonials', brief.testimonials.map((value, i) => i === index ? {...value, quote: e.target.value} : value))}/></label><label>작성자 · 선택<input maxLength={300} value={item.name} onChange={e => edit('testimonials', brief.testimonials.map((value, i) => i === index ? {...value, name: e.target.value} : value))}/></label><button type="button" onClick={() => edit('testimonials', brief.testimonials.filter((_, i) => i !== index))}>이 후기 삭제</button></fieldset>)}
@@ -168,6 +207,7 @@ export default function WebsiteBuilder({initialType='basic'}:{initialType?:Websi
             <button type="button" disabled={brief.faqs.length >= 8} onClick={() => edit('faqs', [...brief.faqs, {question: '', answer: ''}])}>＋ 질문 추가 · 최대 8개</button></div>}
           <button className="primary full" type="submit">{saving ? '저장 중…' : '프로젝트 저장'}</button>
         </fieldset>
+        {missing.length>0 && <div role="alert" className="error-text"><p className="error-text">저장하려면 아래 필수 항목을 입력해 주세요.</p><ul>{missing.map(item=><li key={item.label}>{item.label}</li>)}</ul></div>}
         {error && <p role="alert" className="error-text">{error}</p>}
         <p role="status" className="small">{notice}</p>
         {selectedId && <a className="button" href={`/websites/${selectedId}`}>저장된 미리보기 열기 ↗</a>}
