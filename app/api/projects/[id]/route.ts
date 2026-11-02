@@ -1,7 +1,7 @@
-﻿import {promises as fs} from 'node:fs';
-import {fileFor,readJson,saveProject,apiError} from '../../../../lib/server/store';
-import type {Project} from '../../../../lib/model';
+import {getProject,deleteProject,saveProject,apiError} from '../../../../lib/server/store';
+import {authorize} from '../../../../lib/server/owner';
 export const runtime='nodejs';export const dynamic='force-dynamic';
-export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}){try{return Response.json(await readJson<Project>(fileFor('projects',(await params).id)));}catch(e){return apiError(e,404);}}
-export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){try{return Response.json(await saveProject(await request.json(),(await params).id));}catch(e){return apiError(e);}}
-export async function DELETE(_request:Request,{params}:{params:Promise<{id:string}>}){try{await fs.unlink(fileFor('projects',(await params).id));return Response.json({ok:true});}catch(e){return apiError(e,404);}}
+type Context={params:Promise<{id:string}>};
+export async function GET(request:Request,{params}:Context){try{const actor=await authorize(request);if(actor instanceof Response)return actor;return Response.json(await getProject((await params).id,actor));}catch(e){return apiError(e,404);}}
+export async function PATCH(request:Request,{params}:Context){try{const actor=await authorize(request);if(actor instanceof Response)return actor;return Response.json(await saveProject(await request.json(),(await params).id,actor));}catch(e){return apiError(e);}}
+export async function DELETE(request:Request,{params}:Context){try{const actor=await authorize(request);if(actor instanceof Response)return actor;await deleteProject((await params).id,actor);return Response.json({ok:true});}catch(e){return apiError(e,404);}}

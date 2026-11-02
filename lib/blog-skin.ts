@@ -1,6 +1,6 @@
 export type BlogMenu={label:string;url:string};
 export type BlogSkinDraft={blogUrl?:string;referenceUrl?:string;asidePosition?:'none'|'left'|'right';brand:string;headline:string;description:string;accent:string;style:'corporate'|'personal'|'magazine';imageId:string;logoImageId:string;widgetImageUrl:string;widgetTop:number;widgetOffsetX:number;menus:BlogMenu[]};
-export type BlogSkinProject={id:string;schemaVersion:1;createdAt:string;updatedAt:string;draft:BlogSkinDraft};
+export type BlogSkinProject={ownerId?:string;id:string;schemaVersion:1;createdAt:string;updatedAt:string;draft:BlogSkinDraft};
 export const DEFAULT_BLOG_SKIN:BlogSkinDraft={blogUrl:'',referenceUrl:'',asidePosition:'none',brand:'DIGITAL NOMAD LAB',headline:'아이디어를 현실로 만드는 연구소',description:'AI · WEB · DESIGN · AUTOMATION',accent:'#c4b5fd',style:'corporate',imageId:'',logoImageId:'',widgetImageUrl:'',widgetTop:580,widgetOffsetX:0,menus:[{label:'소개',url:'https://blog.naver.com/'},{label:'서비스',url:'https://blog.naver.com/'},{label:'포트폴리오',url:'https://blog.naver.com/'},{label:'블로그',url:'https://blog.naver.com/'},{label:'문의',url:'https://blog.naver.com/'}]};
 export function canonicalNaverBlogUrl(value:string){
  const url=new URL(value);if(!['https:','http:'].includes(url.protocol)||!['blog.naver.com','m.blog.naver.com'].includes(url.hostname)||url.username||url.password||url.port)throw Error('네이버 블로그 주소를 입력해 주세요.');

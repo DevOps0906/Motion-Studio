@@ -288,6 +288,16 @@ docker compose logs -f motion-studio
 - 기본 포트 4102가 사용 중이면 PowerShell에서 `$env:MOTION_STUDIO_PORT=4103`을 설정한 뒤 Compose를 실행합니다.
 - 로그인 없이 열리는 화면은 `/login`·`/website-requirements`·저장된 웹사이트 미리보기(`/websites/[id]`)뿐이며, 나머지 화면·API는 로그인이 필요합니다. 컨테이너는 비root(`node`, uid 1000)로 실행되고 상태 확인은 `/api/health`를 씁니다.
 - 운영자 계정 생성·백업(`npm run backup`)·복구(`npm run restore -- <폴더> --yes`)·호스트 폴더 권한은 [운영 준비 문서](docs/development/OPERATIONS.md)를 따릅니다.
+
+### 계정별 자료 분리 (task-008)
+- 프로젝트·미디어·웹사이트·블로그 스킨·모델·렌더·문의는 만든 계정의 것만 보입니다. 남의 자료 ID는 없는 ID와 같은 `404 {"error":"찾을 수 없습니다."}`입니다. 샘플(`source-*`)과 공개 미리보기(`/websites/[id]`)에 쓰인 대표·갤러리 이미지는 공개입니다.
+- 운영자(`REQUIREMENTS_ADMIN_EMAILS`에 든 이메일만, localhost 예외 없음)는 남의 자료를 보기·삭제할 수 있고 목록은 `?owner=all`로 봅니다. 그 행위만 `.local-data/audit.log`에 한 줄 JSON(시각·운영자 id·동작·종류·대상 id·대상 소유자 id)으로 남기며 이메일·이름·문의 본문·IP는 넣지 않습니다. 백업에 포함됩니다.
+- 렌더러가 쿠키 없이 가져오는 `/api/renders/:id/assets/:assetId`는 렌더마다 만든 무작위 `assetToken`(URL의 `?token=`) 또는 소유자 세션이 있어야 열립니다.
+- **기존 서버 배포 순서(서버를 멈춘 상태에서만)**: ① `npm run backup`(accounts 포함 전체 복사) → ② 서버 정지 → ③ 코드 교체 → ④ `npm run migrate:owner -- --owner <운영자 이메일> --dry-run` → ⑤ `npm run migrate:owner -- --owner <운영자 이메일>` → ⑥ 서버 기동. Docker는 먼저 `docker compose down`으로 서버 컨테이너를 내린 뒤 `docker compose run --rm -e MOTION_STUDIO_URL=http://motion-studio:3000 motion-studio npm run migrate:owner -- --owner <이메일>`을 실행합니다(`run` 컨테이너 안에서는 health 주소가 달라 서버가 떠 있어도 응답 없음으로 보이므로, `down` 없이 실행하지 마세요). `account:delete`와 `restore`도 같습니다.
+  - `migrate:owner`는 health URL이 응답하면 거부합니다. 계정마다 id를 발급하고, 소유자 없는 자료·문의를 운영자에게 지정하며, 끝에 모든 세션을 폐기합니다(전원 재로그인). 파일 하나씩 임시 파일 교체로 쓰고 비어 있는 것만 채우므로 중간에 실패해도 다시 실행하면 끝나며, 여러 번 실행해도 같습니다.
+  - 이전(⑤)을 마치기 전에 기동하면 id 없는 계정은 모든 보호 화면·API에서 401이 되므로, 반드시 ⑤까지 마친 뒤 기동합니다. 소유자 없는 자료는 id가 있는 운영자만 접근합니다. 운영자 이메일은 가입(SIGNUP_ENABLED)이 열려 있어도 가입으로 만들 수 없고 `account:create`로만 만듭니다. 계정 id는 `account:create`(재설정 `--reset`은 id 유지)와 `migrate:owner`만 발급하고 실행 중에는 채우지 않습니다.
+- **롤백**: 문의 DB는 `owner_id` 열이 추가되어 구버전 코드가 그대로 읽는 방식이 아니므로, 롤백은 ①의 백업 폴더 복원(`npm run restore -- <폴더> --yes`)입니다. 구 백업을 새 코드로 복원하면 첫 DB 접근 때 `owner_id` 열이 자동으로 추가되며, 소유자 없는 자료는 `migrate:owner`로 다시 지정합니다.
+- **계정 삭제**: `npm run account:delete -- <이메일> --yes [--to <운영자 이메일>]`(서버 정지 상태). 세션 폐기 → 자료·문의를 운영자에게 이전 → 계정 파일 삭제(마지막) 순서이며 실패하면 다시 실행합니다. 운영자 계정은 삭제를 거부합니다.
 ## 사용 순서
 
 1. `15초 영상 만들기`를 누릅니다.

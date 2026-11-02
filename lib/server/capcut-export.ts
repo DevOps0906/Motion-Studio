@@ -2,12 +2,13 @@ import 'server-only';
 import {promises as fs} from 'node:fs';
 import path from 'node:path';
 import {zipSync,strToU8} from 'fflate';
-import {getJob,renderDir} from './render';
+import {getOwnedJob,renderDir} from './render';
+import type {Actor} from './owner';
 import {readJson,validId} from './store';
 import type {Project,MediaAsset} from '../model';
 const extensions:Record<string,string>={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','audio/mpeg':'mp3','audio/wav':'wav','video/mp4':'mp4','video/webm':'webm'};
-export async function buildCapCutPackage(id:string){
-  const job=await getJob(id);
+export async function buildCapCutPackage(id:string,actor:Actor){
+  const job=await getOwnedJob(id,actor,'view');
   if(job.status!=='completed')throw new Error('완료된 렌더 작업에서 내보내 주세요.');
   const dir=renderDir(job.id),files:Record<string,Uint8Array>={};
   const input=await readJson<{project:Project;media:MediaAsset[]}>(path.join(dir,'input.json'));

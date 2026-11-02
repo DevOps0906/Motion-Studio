@@ -1,22 +1,26 @@
 import {promises as fs} from 'node:fs';
 import path from 'node:path';
-import {addMedia,listMedia,apiError} from '../../../../lib/server/store';
+import {addMedia,ownMedia,apiError} from '../../../../lib/server/store';
+import {authorize} from '../../../../lib/server/owner';
 import manifest from '../../../../public/photos/manifest.json';
 export const runtime='nodejs';
-let preparing:Promise<unknown>|undefined;
-export async function POST(){
+// One preparation at a time per account; each account gets its own copy of the starter photos.
+const preparing=new Map<string,Promise<unknown>>();
+export async function POST(request:Request){
+ const actor=await authorize(request);if(actor instanceof Response)return actor;
  try{
-  if(preparing)return Response.json(await preparing);
-  preparing=(async()=>{
-   const media=await listMedia();let created=0;
+  const running=preparing.get(actor.id);if(running)return Response.json(await running);
+  const job=(async()=>{
+   const media=await ownMedia(actor.id);let created=0;
    for(const photo of manifest.photos){
     const name=`starter-${photo.file}`;
     if(media.some(asset=>asset.name===name&&asset.sourceAssetId===photo.sourceAssetId))continue;
     const bytes=await fs.readFile(path.join(process.cwd(),'public','photos',photo.file));
-    await addMedia(bytes,name,photo.sourceAssetId,photo.crop);created++;
+    await addMedia(bytes,name,actor.id,photo.sourceAssetId,photo.crop);created++;
    }
    return {created,alreadyPrepared:created===0};
   })();
-  return Response.json(await preparing);
- }catch(error){return apiError(error);}finally{preparing=undefined;}
+  preparing.set(actor.id,job);
+  return Response.json(await job);
+ }catch(error){return apiError(error);}finally{preparing.delete(actor.id);}
 }

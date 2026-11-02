@@ -58,6 +58,7 @@ export type WebsiteBrief = {
 };
 
 export type WebsiteProject = WebsiteBrief & {
+  ownerId?: string;
   id: string;
   schemaVersion: 1;
   templateId: 'brand-landing-v1';

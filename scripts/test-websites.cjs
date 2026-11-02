@@ -117,19 +117,20 @@ assert.ok(!exportWebsiteHtml(good).includes('href="./index.html"'));
  vm.runInNewContext(compiled,{module:handler,exports:handler.exports,Response,require:id=>{
   if(id==='node:fs')return {promises:{}};
   if(id==='fflate')return require('fflate');
-  if(id.endsWith('/server/websites'))return {getWebsite:async()=>saved};
+  if(id.endsWith('/server/websites'))return {getWebsite:async()=>saved,getOwnedWebsite:async()=>saved};
+  if(id.endsWith('/server/owner'))return {authorize:async()=>({id:'owner-a',operator:false})};
   if(id.endsWith('/server/store'))return {apiError:error=>Response.json({error:error.message},{status:400})};
   if(id.endsWith('/website-export'))return {exportWebsiteHtml};
   if(id.endsWith('/lib/website'))return loadTs('lib/website.ts');
   throw Error('Unexpected dependency '+id);
  }});
- const response=await handler.exports.GET(null,{params:Promise.resolve({id:'qa-project'})});
+ const response=await handler.exports.GET(new Request('http://t/'),{params:Promise.resolve({id:'qa-project'})});
  assert.equal(response.headers.get('content-type'),'application/zip');
  const files=require('fflate').unzipSync(new Uint8Array(await response.arrayBuffer()));
  assert.equal(Object.keys(files).sort().join(','),'README.txt,about.html,index.html');
  for(const filename of ['index.html','about.html'])assert.ok(require('fflate').strFromU8(files[filename]).includes('href="./about.html"'));
  saved=validateWebsiteBrief({...good,pages:[]});
- const single=await handler.exports.GET(null,{params:Promise.resolve({id:'qa-project'})});
+ const single=await handler.exports.GET(new Request('http://t/'),{params:Promise.resolve({id:'qa-project'})});
  assert.equal(single.headers.get('content-type'),'text/html; charset=utf-8');
  assert.ok(single.headers.get('content-disposition').endsWith('.html"'));
  console.log('PASS: multi-page migration, invalid/duplicate addresses, per-page sections, relative navigation, ZIP payload and single-page compatibility');
@@ -189,13 +190,14 @@ console.log('PASS: legacy 3-section compatibility, testimonial/FAQ limits and re
  vm.runInNewContext(compiled,{module:handler,exports:handler.exports,Response,require:id=>{
   if(id==='node:fs')return {promises:{stat:async()=>({size:5}),readFile:async file=>Buffer.from(file)}};
   if(id==='fflate')return require('fflate');
-  if(id.endsWith('/server/websites'))return {getWebsite:async()=>imaged};
+  if(id.endsWith('/server/websites'))return {getWebsite:async()=>imaged,getOwnedWebsite:async()=>imaged};
+  if(id.endsWith('/server/owner'))return {authorize:async()=>({id:'owner-a',operator:false})};
   if(id.endsWith('/server/store'))return {resolveMedia:async mediaId=>({mimeType:'image/png',file:'IMG-'+mediaId}),apiError:error=>Response.json({error:error.message},{status:400})};
   if(id.endsWith('/website-export'))return {exportWebsiteHtml};
   if(id.endsWith('/lib/website'))return loadTs('lib/website.ts');
   throw Error('Unexpected dependency '+id);
  }});
- const response=await handler.exports.GET(null,{params:Promise.resolve({id:'qa-project'})});
+ const response=await handler.exports.GET(new Request('http://t/'),{params:Promise.resolve({id:'qa-project'})});
  assert.equal(response.status,200);
  const {unzipSync,strFromU8}=require('fflate');
  const files=unzipSync(new Uint8Array(await response.arrayBuffer()));
@@ -233,13 +235,13 @@ assert.equal(websiteCtaHref({...emptyReviews,sections:[allSections[3],allSection
   if(id==='server-only')return {};
   if(id.startsWith('node:'))return require(id);
   if(id==='./store')return {DATA:'.qa',listJson:async()=>[],readJson:async()=>{throw Error('none');},writeJson:async()=>{written++;},
-   listMedia:async()=>[{id:'home-photo',type:'image'},{id:'page-photo',type:'image'},{id:'capture',type:'image',role:'source-capture'},{id:'clip',type:'video'}]};
+   ownMedia:async()=>[{id:'home-photo',type:'image'},{id:'page-photo',type:'image'},{id:'capture',type:'image',role:'source-capture'},{id:'clip',type:'video'}]};
   if(id==='../website')return loadTs('lib/website.ts');
   throw Error('Unexpected dependency '+id);
  }});
  const withPageImage=heroImageId=>({...good,heroImageId:'home-photo',pages:[{...extraPage,heroImageId}]});
- assert.equal((await websites.exports.saveWebsite(withPageImage('page-photo'))).pages[0].heroImageId,'page-photo');
- for(const heroImageId of ['missing-photo','capture','clip'])await assert.rejects(websites.exports.saveWebsite(withPageImage(heroImageId)),/대표 이미지로 사용할 사진을 다시 선택해 주세요/);
+ assert.equal((await websites.exports.saveWebsite(withPageImage('page-photo'),undefined,{id:'owner-a',operator:false})).pages[0].heroImageId,'page-photo');
+ for(const heroImageId of ['missing-photo','capture','clip'])await assert.rejects(websites.exports.saveWebsite(withPageImage(heroImageId),undefined,{id:'owner-a',operator:false}),/대표 이미지로 사용할 사진을 다시 선택해 주세요/);
  assert.equal(written,1);
 
  const os=require('node:os'),root=fs.mkdtempSync(path.join(os.tmpdir(),'website-store-'));
@@ -250,12 +252,13 @@ assert.equal(websiteCtaHref({...emptyReviews,sections:[allSections[3],allSection
  const store={exports:{}};
  const storeCode=ts.transpileModule(fs.readFileSync('lib/server/store.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText;
  vm.runInNewContext(storeCode,{module:store,exports:store.exports,process:{cwd:()=>root,env:process.env,platform:process.platform},setTimeout,Buffer,require:id=>{
+  if(id==='./owner')return {NotFoundError:class extends Error{},allow:async()=>{},notFoundResponse:()=>null};
   if(id==='server-only'||id==='sharp'||id==='../model')return {};
   if(id.endsWith('manifest.json'))return [];
   return require(id);
  }});
  try{
-  for(const id of ['home-photo','page-photo'])await assert.rejects(store.exports.deleteMedia(id),/웹 프로젝트에서 사용 중입니다/);
+  for(const id of ['home-photo','page-photo'])await assert.rejects(store.exports.deleteMedia(id,{id:'owner-a',operator:false}),/웹 프로젝트에서 사용 중입니다/);
  }finally{fs.rmSync(root,{recursive:true,force:true});}
  console.log('PASS: page hero images validated on save, protected from deletion, and empty testimonial/FAQ sections skipped in preview/export/CTA');
 })().catch(error=>{console.error(error);process.exitCode=1;});
@@ -450,13 +453,14 @@ assert.equal(websiteCtaHref({...emptyReviews,sections:[allSections[3],allSection
    vm.runInNewContext(ts.transpileModule(fs.readFileSync('app/api/websites/[id]/export/route.ts', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText, {module: handler, exports: handler.exports, Response, require: id => {
     if (id === 'node:fs') return {promises: {stat: async file => { if (file === 'IMG-nofile') throw Object.assign(Error('ENOENT'), {code: 'ENOENT'}); return {size: sizeOf}; }, readFile: async file => Buffer.from(file)}};
     if (id === 'fflate') return require('fflate');
-    if (id.endsWith('/server/websites')) return {getWebsite: async () => project};
+    if (id.endsWith('/server/websites')) return {getWebsite: async () => project, getOwnedWebsite: async () => project};
+    if (id.endsWith('/server/owner')) return {authorize: async () => ({id: 'owner-a', operator: false})};
     if (id.endsWith('/server/store')) return {resolveMedia: async mediaId => { if (mediaId === 'gone') throw Error('없는 미디어'); return {mimeType: 'image/png', file: 'IMG-' + mediaId}; }, apiError: (error, status = 400) => Response.json({error: error.message}, {status})};
     if (id.endsWith('/website-export')) return {exportWebsiteHtml};
     if (id.endsWith('/lib/website')) return loadTs('lib/website.ts');
     throw Error('Unexpected dependency ' + id);
    }});
-   return handler.exports.GET(null, {params: Promise.resolve({id: 'qa-gallery'})});
+   return handler.exports.GET(new Request('http://t/'), {params: Promise.resolve({id: 'qa-gallery'})});
   };
   const zipped = validateWebsiteBrief({...good, heroImageId: 'home-photo', gallery: [{imageId: 'g1', caption: '하나'}, {imageId: 'gone'}, {imageId: 'g2'}], sections: good.sections.map(s => s.id === 'gallery' ? {...s, enabled: true} : s), pages: [
    {...extraPage, id: 'inherit', sections: six(true), heroImageId: 'page-photo'}, {...extraPage, id: 'own', sections: six(true), content: {...customContent, gallery: [{imageId: 'g2'}, {imageId: 'g3'}]}}, {...extraPage, id: 'plain', sections: six(false)}]});

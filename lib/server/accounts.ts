@@ -1,5 +1,5 @@
 import 'server-only';
-import {SESSION_COOKIE,SESSION_LIFETIME,createSession,deleteSession,hashValue,normalizeEmail,readAccount,readSession,sessionToken,validCredentials,verifyPassword,writeAccount,type AccountIdentity} from '../account-store';
+import {isAdminEmail,SESSION_COOKIE,SESSION_LIFETIME,createSession,deleteSession,hashValue,normalizeEmail,readAccount,readSession,sessionToken,validCredentials,verifyPassword,writeAccount,type AccountIdentity} from '../account-store';
 export {SESSION_COOKIE};
 export type {AccountIdentity};
 // Per-email window for every email; the short global window counts only emails with no account file, so floods of unknown emails never lock out real accounts. Old records are dropped instead of blocking everyone.
@@ -38,13 +38,14 @@ export async function authenticate(input:unknown){
  limiter.attempt(email,Date.now(),data.action==='login'&&Boolean(await readAccount(email)));
  let identity:AccountIdentity;
  if(data.action==='register'){
+   if(isAdminEmail(email))throw new Error('운영자 계정은 가입으로 만들 수 없습니다. account:create를 사용하세요.');
    const name=typeof data.name==='string'?data.name.trim():'';if(!name||name.length>80)throw new Error('표시 이름을 1~80자로 입력해 주세요.');
-   try{await writeAccount({name,email,password});}catch{throw new Error('계정을 만들 수 없습니다. 이미 가입했다면 로그인해 주세요.');}
-   identity={name,email};
+   let created;try{created=await writeAccount({name,email,password});}catch{throw new Error('계정을 만들 수 없습니다. 이미 가입했다면 로그인해 주세요.');}
+   identity={id:created.id,name,email};
  }else{
    const found=await verifyPassword(email,password);
    if(!found)throw new Error('이메일 또는 비밀번호를 확인해 주세요.');
-   identity={name:found.name,email:found.email};
+   identity={id:found.id,name:found.name,email:found.email};
  }
  const token=await createSession(identity);
  limiter.success(email);

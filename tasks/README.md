@@ -9,7 +9,7 @@
 | task-005 | 공개 운영 환경·백업·복구·모니터링 검증 (명세: tasks/task-005.md, 1단계 완료 2026-11-02·2단계 도메인 후) | W3 | task-003 | 높음 | builder | 진행 |
 | task-006 | 편집기 필수 입력 한 번에 안내·페이지 주소 자동 제안 (명세: tasks/task-006.md) | W4 | — | 보통 | builder | 완료 |
 | task-007 | 갤러리 섹션·페이지별 후기/FAQ (명세: tasks/task-007.md, REVISE 반영) | W4 | task-006 | 높음 | builder | 완료 |
-| task-008 | 계정별 자료 분리 (명세: tasks/task-008.md, 결정 9장) | W4 | task-007 | 높음 | builder | 진행 |
+| task-008 | 계정별 자료 분리 (명세: tasks/task-008.md, 결정 9장·코드 완료 2026-11-02, 실제 데이터 migrate:owner 대기) | W4 | task-007 | 높음 | builder | 진행 |
 
 상태: 대기 / 진행 / 완료 / 보류. 근거는 README `진행 현황` 절의 "다음 개발 단계"입니다.
 

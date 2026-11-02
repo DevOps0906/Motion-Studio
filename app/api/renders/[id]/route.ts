@@ -1,3 +1,4 @@
-﻿import {getJob} from '../../../../lib/server/render';import {apiError} from '../../../../lib/server/store';
+import {getOwnedJob,publicJob} from '../../../../lib/server/render';import {apiError} from '../../../../lib/server/store';
+import {authorize} from '../../../../lib/server/owner';
 export const runtime='nodejs';export const dynamic='force-dynamic';
-export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}){try{return Response.json(await getJob((await params).id));}catch(e){return apiError(e,404);}}
+export async function GET(request:Request,{params}:{params:Promise<{id:string}>}){try{const actor=await authorize(request);if(actor instanceof Response)return actor;return Response.json(publicJob(await getOwnedJob((await params).id,actor)));}catch(e){return apiError(e,404);}}

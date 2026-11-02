@@ -90,7 +90,9 @@ const run=(script,args,{cwd,env={},input=''})=>spawnSync(process.execPath,[path.
  assert.match((await auth({}).authenticate(register('b@example.com'))).token,/^[a-f0-9]{64}$/);
  assert.equal((await auth({NODE_ENV:'production'}).authenticate({action:'login',email:'A@example.com',password:'correct horse 123'})).identity.email,'a@example.com');
  await assert.rejects(auth({NODE_ENV:'production'}).authenticate({action:'login',email:'a@example.com',password:'wrong password'}),/비밀번호를 확인/);
- console.log('PASS: signup closed in production by default, SIGNUP_ENABLED overrides, login still works');
+ await assert.rejects(world({env:{SIGNUP_ENABLED:'true',REQUIREMENTS_ADMIN_EMAILS:'boss@example.com'},cwd:signupDir})('lib/server/accounts.ts').authenticate(register('Boss@Example.com')),/account:create/);
+ assert.equal(await world({cwd:signupDir})('lib/account-store.ts').readAccount('boss@example.com'),null);
+ console.log('PASS: signup closed in production by default, SIGNUP_ENABLED overrides, admin emails cannot register, login still works');
 
  // 6. Login limiter: per-email and global windows; many tracked emails drop oldest records instead of blocking everyone.
  const {createLoginLimiter}=auth({});

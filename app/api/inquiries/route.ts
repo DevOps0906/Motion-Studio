@@ -1,7 +1,7 @@
 import {after} from 'next/server';
 import {INQUIRY_LIMITS} from '../../../lib/inquiry';
 import {deliverInquiryAlert,listInquiries,submitInquiry} from '../../../lib/server/inquiries';
-import {canReadRequirements} from '../../../lib/server/website-requirements';
+import {authorize,visible} from '../../../lib/server/owner';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'no-store'};
@@ -33,7 +33,8 @@ export async function POST(request:Request){
   return Response.json({error:'문의를 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.'},{status:500,headers});
  }
 }
+// Own websites' inquiries; the operator may add ?owner=all (foreign rows are written to the audit log).
 export async function GET(request:Request){
- if(!await canReadRequirements(request))return Response.json({error:'문의 내역을 확인할 운영자 계정으로 로그인해 주세요.'},{status:403,headers});
- try{return Response.json(listInquiries(),{headers});}catch{return Response.json({error:'문의 내역을 불러오지 못했습니다.'},{status:500,headers});}
+ const actor=await authorize(request);if(actor instanceof Response)return actor;
+ try{const all=actor.operator&&new URL(request.url).searchParams.get('owner')==='all';return Response.json(await visible(actor,request,'inquiry',listInquiries(Date.now(),all?'all':actor.id)),{headers});}catch{return Response.json({error:'문의 내역을 불러오지 못했습니다.'},{status:500,headers});}
 }

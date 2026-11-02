@@ -70,28 +70,29 @@ const valid=(overrides={})=>({websiteId:'site-1',submissionKey:UUID(),name:'홍�
  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'inquiries-test-'));
  const sites={'site-1':{title:'사이트 하나',inquiryForm:true},'site-off':{title:'폼 꺼짐',inquiryForm:false},'site-old':{title:'옛 데이터'}};
  for(let i=2;i<=8;i++)sites['site-'+i]={title:'사이트 '+i,inquiryForm:true};
- let allowed=false;const queued=[];
+ let allowed=false,current=null;const queued=[];
  const stubs={
-  'lib/server/websites':{getWebsite:async id=>{if(!sites[id])throw Object.assign(Error('ENOENT /secret/path'),{code:'ENOENT'});return {id,...sites[id]};}},
+  'lib/server/websites':{getWebsite:async id=>{if(!sites[id])throw Object.assign(Error('ENOENT /secret/path'),{code:'ENOENT'});return {id,ownerId:'acct-a',...sites[id]};}},
+  'lib/server/accounts':{currentAccount:async()=>current},
   'lib/server/website-requirements':{canReadRequirements:async()=>allowed},
   'next/server':{after:task=>queued.push(task)},
  };
- const load=world({stubs,cwd:tmp,env:{SLACK_WEBHOOK_URL:'https://hooks.slack.com/services/T/B/x'},fetch:async()=>{throw Error('webhook down');}});
+ const load=world({stubs,cwd:tmp,env:{SLACK_WEBHOOK_URL:'https://hooks.slack.com/services/T/B/x',REQUIREMENTS_ADMIN_EMAILS:'op@example.com'},fetch:async()=>{throw Error('webhook down');}});
  const {submitInquiry,listInquiries,unreadInquiryCount}=load('lib/server/inquiries.ts');
  const api=load('app/api/inquiries/route.ts'),item=load('app/api/inquiries/[id]/route.ts'),unread=load('app/api/inquiries/unread/route.ts');
  const post=body=>api.POST(new Request('http://localhost/api/inquiries',{method:'POST',body:typeof body==='string'?body:JSON.stringify(body)}));
  let response=await post(valid());assert.equal(response.status,201);assert.deepEqual(await response.json(),{ok:true});
  assert.equal(queued.length,1);await queued[0]();
- let rows=listInquiries();assert.equal(rows.length,1);assert.deepEqual({...rows[0].notify},{email:'skipped',slack:'failed',discord:'skipped'});assert.equal(rows[0].readAt,null);
+ let rows=listInquiries(Date.now(),'all');assert.equal(rows.length,1);assert.deepEqual({...rows[0].notify},{email:'skipped',slack:'failed',discord:'skipped'});assert.equal(rows[0].readAt,null);
  response=await post(valid({websiteId:'site-off'}));assert.equal(response.status,404);assert.ok(!(await response.text()).includes('ENOENT'));
  assert.equal((await post(valid({websiteId:'site-old'}))).status,404);
  response=await post(valid({websiteId:'missing'}));assert.equal(response.status,404);assert.ok(!(await response.text()).includes('secret'));
  assert.equal((await post(valid({consent:false}))).status,400);
  assert.equal((await post('{broken')).status,400);
  assert.equal((await post(JSON.stringify(valid({message:'가'.repeat(1990)})).padEnd(16*1024+1,' '))).status,413);
- response=await post(valid({website:'http://bot.example'}));assert.equal(response.status,201);assert.deepEqual(await response.json(),{ok:true});assert.equal(listInquiries().length,1);
+ response=await post(valid({website:'http://bot.example'}));assert.equal(response.status,201);assert.deepEqual(await response.json(),{ok:true});assert.equal(listInquiries(Date.now(),'all').length,1);
  const key=UUID();assert.ok((await submitInquiry(valid({websiteId:'site-2',submissionKey:key}))).alert);
- assert.equal((await submitInquiry(valid({websiteId:'site-2',submissionKey:key}))).alert,null);assert.equal(listInquiries().length,2);
+ assert.equal((await submitInquiry(valid({websiteId:'site-2',submissionKey:key}))).alert,null);assert.equal(listInquiries(Date.now(),'all').length,2);
  for(let i=0;i<4;i++)await submitInquiry(valid({websiteId:'site-2'}));
  await assert.rejects(submitInquiry(valid({websiteId:'site-2'})),error=>error.status===429);
  response=await post(valid({websiteId:'site-2'}));assert.equal(response.status,429);
@@ -99,22 +100,38 @@ const valid=(overrides={})=>({websiteId:'site-1',submissionKey:UUID(),name:'홍�
  // Global: 30 per 10 minutes across all sites (6 stored so far).
  for(const id of ['site-3','site-4','site-5','site-6'])for(let i=0;i<5;i++)await submitInquiry(valid({websiteId:id}));
  for(let i=0;i<4;i++)await submitInquiry(valid({websiteId:'site-7'}));
- assert.equal(listInquiries().length,30);
+ assert.equal(listInquiries(Date.now(),'all').length,30);
  await assert.rejects(submitInquiry(valid({websiteId:'site-8'})),error=>error.status===429);
- // Operators only
- allowed=false;
- assert.equal((await api.GET(new Request('http://localhost/api/inquiries'))).status,403);
- assert.equal((await unread.GET(new Request('http://localhost/api/inquiries/unread'))).status,403);
- const target=listInquiries()[0].id,ctx={params:Promise.resolve({id:target})};
- assert.equal((await item.PATCH(new Request('http://localhost/api/inquiries/'+target,{method:'PATCH'}),ctx)).status,403);
- assert.equal(listInquiries().find(row=>row.id===target).readAt,null);
- allowed=true;
- const listed=await (await api.GET(new Request('http://localhost/api/inquiries'))).json();assert.equal(listed.length,30);assert.equal(listed[0].name,'홍길동');
+ // Per-account: each account sees only the inquiries of its own websites; the operator needs ?owner=all and leaves an audit line.
+ const A={id:'acct-a',name:'가',email:'a@example.com'},B={id:'acct-b',name:'나',email:'b@example.com'},OP={id:'acct-op',name:'운영',email:'op@example.com'};
+ const get=(url,path='/api/inquiries')=>api.GET(new Request('http://localhost'+path+url));
+ current=null;assert.equal((await get('')).status,401);assert.equal((await unread.GET(new Request('http://localhost/api/inquiries/unread'))).status,401);
+ const target=listInquiries(Date.now(),'all')[0].id,ctx={params:Promise.resolve({id:target})};
+ assert.equal((await item.PATCH(new Request('http://localhost/api/inquiries/'+target,{method:'PATCH'}),ctx)).status,401);
+ current=B;
+ assert.deepEqual(await (await get('')).json(),[]);assert.deepEqual(await (await get('?owner=all')).json(),[],'a non-operator cannot widen the scope');
+ assert.equal((await (await unread.GET(new Request('http://localhost/api/inquiries/unread'))).json()).count,0);
+ let foreign=await item.PATCH(new Request('http://localhost/x',{method:'PATCH'}),ctx);assert.equal(foreign.status,404);assert.deepEqual(await foreign.json(),{error:'찾을 수 없습니다.'});
+ const missing=await item.PATCH(new Request('http://localhost/x',{method:'PATCH'}),{params:Promise.resolve({id:UUID()})});assert.equal(missing.status,404);assert.deepEqual(await missing.json(),{error:'찾을 수 없습니다.'});
+ assert.equal(listInquiries(Date.now(),'all').find(row=>row.id===target).readAt,null);
+ current=A;
+ const listed=await (await get('')).json();assert.equal(listed.length,30);assert.equal(listed[0].name,'홍길동');
  assert.equal((await (await unread.GET(new Request('http://localhost/api/inquiries/unread'))).json()).count,30);
  assert.equal((await item.PATCH(new Request('http://localhost/x',{method:'PATCH'}),ctx)).status,200);
- assert.equal(unreadInquiryCount(),29);assert.ok(listInquiries().find(row=>row.id===target).readAt);
- assert.equal((await item.PATCH(new Request('http://localhost/x',{method:'PATCH'}),{params:Promise.resolve({id:UUID()})})).status,404);
- console.log('PASS: form-off/old sites rejected, honeypot not stored, duplicate keys, site/global rate limits, alert failure keeps inquiry, operator-only list/read/badge');
+ assert.equal(unreadInquiryCount('all'),29);assert.equal(unreadInquiryCount('acct-a'),29);assert.equal(unreadInquiryCount('acct-b'),0);assert.ok(listInquiries(Date.now(),'all').find(row=>row.id===target).readAt);
+ // Operator: own list is empty by default, ?owner=all shows everything and writes one audit line per foreign row (no personal data).
+ current=OP;
+ assert.deepEqual(await (await get('')).json(),[]);
+ const auditFile=path.join(tmp,'.local-data','audit.log');assert.ok(!fs.existsSync(auditFile));
+ assert.equal((await (await get('?owner=all')).json()).length,30);
+ const lines=fs.readFileSync(auditFile,'utf8').trim().split('\n').map(line=>JSON.parse(line));
+ assert.equal(lines.length,30);assert.deepEqual(Object.keys(lines[0]).sort(),['action','at','id','kind','operator','ownerId']);
+ assert.ok(lines.every(line=>line.operator==='acct-op'&&line.action==='view'&&line.kind==='inquiry'&&line.ownerId==='acct-a'));
+ assert.ok(!/홍길동|010|@example/.test(fs.readFileSync(auditFile,'utf8')),'audit log has no personal data');
+ assert.equal((await item.PATCH(new Request('http://localhost/x',{method:'PATCH'}),{params:Promise.resolve({id:listInquiries(Date.now(),'all')[1].id})})).status,404,'operator cannot change another account inquiry');
+ // Intake copies the website owner; a website without an owner stores NULL.
+ assert.ok(listInquiries(Date.now(),'all').every(row=>row.ownerId==='acct-a'));
+ console.log('PASS: form-off/old sites rejected, honeypot not stored, duplicate keys, site/global rate limits, alert failure keeps inquiry, per-account list/read/badge, operator ?owner=all audited');
  // 3b. Streaming body limit, stale pending alerts, 90-day purge with an injected clock
  {
   const tmp2=fs.mkdtempSync(path.join(os.tmpdir(),'inquiries-test-'));const queued2=[];
@@ -130,12 +147,12 @@ const valid=(overrides={})=>({websiteId:'site-1',submissionKey:UUID(),name:'홍�
   assert.equal(res.status,201);
   const now=Date.now();
   await store.submitInquiry(valid({websiteId:'site-4'}),now-11*60_000);
-  const recent=store.listInquiries(now);assert.equal(recent.length,2);
+  const recent=store.listInquiries(now,'all');assert.equal(recent.length,2);
   assert.deepEqual({...recent.find(row=>row.websiteId==='site-4').notify},{email:'unknown',slack:'unknown',discord:'unknown'});
   assert.equal(recent.find(row=>row.websiteId==='site-3').notify.email,'pending');
   await store.submitInquiry(valid({websiteId:'site-5'}),now-91*86400000);
-  assert.equal(store.listInquiries(now).length,2);assert.ok(!store.listInquiries(now).some(row=>row.websiteId==='site-5'));
-  await store.submitInquiry(valid({websiteId:'site-6'}),now-89*86400000);assert.equal(store.listInquiries(now).length,3);
+  assert.equal(store.listInquiries(now,'all').length,2);assert.ok(!store.listInquiries(now,'all').some(row=>row.websiteId==='site-5'));
+  await store.submitInquiry(valid({websiteId:'site-6'}),now-89*86400000);assert.equal(store.listInquiries(now,'all').length,3);
   try{fs.rmSync(tmp2,{recursive:true,force:true});}catch{}
  }
  console.log('PASS: streamed 16KB body cutoff, Content-Length 413, stale pending shown as unknown, 90-day purge with injected clock');

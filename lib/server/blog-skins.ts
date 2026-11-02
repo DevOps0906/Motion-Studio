@@ -3,16 +3,18 @@ import {promises as fs} from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {zipSync,strToU8} from 'fflate';
-import {DATA,readJson,writeJson,listJson,listMedia,resolveMedia,validId} from './store';
+import {DATA,readOwned,writeJson,listJson,ownMedia,ownedRef,validId} from './store';
+import {NotFoundError,type Actor} from './owner';
 import {rasterizeSvg} from './rasterize';
 import {validateBlogSkin,blogWidgetCoordinates,escapeBlogText as e,type BlogSkinDraft,type BlogSkinProject} from '../blog-skin';
 const directory=path.join(DATA,'blog-skins');
 export async function listBlogSkins(){return (await listJson<BlogSkinProject>(directory)).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));}
-export async function saveBlogSkin(input:unknown,id?:string){
- const draft=validateBlogSkin(input);if(id&&!validId(id))throw new Error('프로젝트 ID를 확인해 주세요.');
- const available=await listMedia();let previous:BlogSkinProject|undefined;if(id)previous=await readJson<BlogSkinProject>(path.join(directory,id+'.json'));
+export async function saveBlogSkin(input:unknown,id:string|undefined,actor:Actor){
+ if(id&&!validId(id))throw new NotFoundError();
+ let previous:BlogSkinProject|undefined;if(id)previous=await readOwned<BlogSkinProject>(()=>path.join(directory,id+'.json'),actor,'blog-skin',id,'change');
+ const draft=validateBlogSkin(input);const available=await ownMedia(actor.id);
  if([draft.imageId,draft.logoImageId].filter(Boolean).some(id=>!available.some(asset=>asset.id===id&&asset.type==='image')))throw new Error('대표 이미지를 다시 선택해 주세요.');
- const now=new Date().toISOString(),project:BlogSkinProject={id:previous?.id||randomUUID(),schemaVersion:1,createdAt:previous?.createdAt||now,updatedAt:now,draft};
+ const now=new Date().toISOString(),project:BlogSkinProject={ownerId:previous?.ownerId||actor.id,id:previous?.id||randomUUID(),schemaVersion:1,createdAt:previous?.createdAt||now,updatedAt:now,draft};
  await writeJson(path.join(directory,project.id+'.json'),project);return project;
 }
 function textLines(text:string,max:number){
@@ -32,15 +34,15 @@ export function blogSkinSvg(draft:BlogSkinDraft,image='',logo=''){
  const aside=draft.asidePosition&&draft.asidePosition!=='none'?`<g data-blog-aside="${draft.asidePosition}"><rect x="${asideX}" y="165" width="170" height="430" rx="12" fill="${panel}"/>${svgText(draft.brand,asideX+16,205,17,fg,8,2)}${svgText('프로필 · 카테고리',asideX+16,270,12,muted,13,1)}${draft.menus.map((menu,index)=>`<rect x="${asideX}" y="${300+index*54}" width="170" height="48" rx="6" fill="${draft.accent}" opacity=".14"/>${svgText(menu.label,asideX+16,331+index*54,14,fg,10,1)}`).join('')}</g>`:'';
  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1920" height="900"><defs><clipPath id="cover"><rect x="1100" y="165" width="335" height="330" rx="${draft.style==='personal'?145:20}"/></clipPath></defs><rect width="1920" height="900" fill="${bg}"/>${aside}<circle cx="1460" cy="220" r="310" fill="${draft.accent}" opacity=".08"/>${logo?`<image x="487" y="55" width="42" height="42" preserveAspectRatio="xMidYMid meet" xlink:href="${logo}"/>`:""}${svgText(draft.brand,logo?547:487,95,30,fg,logo?29:32,1)}<text x="487" y="160" fill="${muted}" font-size="14" letter-spacing="4">CREATIVE BRAND EXPERIENCE</text>${svgText(draft.headline,487,245,58,fg,9.4,3)}${svgText(draft.description,487,505,18,muted,49,2)}${image?`<image x="1100" y="165" width="335" height="330" preserveAspectRatio="xMidYMid slice" clip-path="url(#cover)" xlink:href="${image}"/>`:`<rect x="1100" y="165" width="335" height="330" rx="${draft.style==='personal'?145:20}" fill="${draft.accent}"/><g transform="rotate(-10 1267 330)" fill="${bg}"><rect x="1187" y="250" width="72" height="72" rx="14"/><rect x="1275" y="250" width="72" height="72" rx="14" opacity=".6"/><rect x="1187" y="338" width="72" height="72" rx="14" opacity=".6"/><rect x="1275" y="338" width="72" height="72" rx="14"/></g>`}${widgets.map((widget,index)=>`<rect x="${widget.x}" y="${widget.y}" width="170" height="100" rx="12" fill="${panel}"/><text x="${widget.x+20}" y="${widget.y+24}" font-size="13" fill="${muted}">0${index+1} ↗</text>${svgText(widget.label,widget.x+20,widget.y+55,20,fg,6.5,2)}`).join('')}<text x="487" y="${draft.widgetTop+142}" fill="${muted}" font-size="13" letter-spacing="3">LATEST CONTENTS · BLOG</text>${draft.menus.slice(0,3).map((menu,index)=>`<rect x="${487+index*322}" y="${draft.widgetTop+160}" width="302" height="105" rx="10" fill="${panel}"/>${svgText(menu.label,507+index*322,draft.widgetTop+205,20,fg,12,2)}`).join('')}</svg>`;
 }
-async function imageFor(draft:BlogSkinDraft){
+async function imageFor(draft:BlogSkinDraft,ownerId:string){
  if(!draft.imageId)return '';
- const asset=await resolveMedia(draft.imageId);if(!['image/png','image/jpeg','image/webp'].includes(asset.mimeType))throw new Error('PNG·JPG·WebP 이미지를 선택해 주세요.');
+ const asset=await ownedRef(ownerId,draft.imageId);if(!['image/png','image/jpeg','image/webp'].includes(asset.mimeType))throw new Error('PNG·JPG·WebP 이미지를 선택해 주세요.');
  const stat=await fs.stat(asset.file);if(stat.size>20*1024**2)throw new Error('이미지는 20MiB 이하로 선택해 주세요.');
  return `data:${asset.mimeType};base64,${(await fs.readFile(asset.file)).toString('base64')}`;
 }
-export async function renderBlogSkin(input:unknown){const draft=validateBlogSkin(input),image=await imageFor(draft),logo=await imageFor({...draft,imageId:draft.logoImageId});return {draft,svg:blogSkinSvg(draft,image,logo)};}
-export async function exportBlogSkin(input:unknown){
- const {draft,svg}=await renderBlogSkin(input),files:Record<string,Uint8Array>={},coordinates=blogWidgetCoordinates(draft);
+export async function renderBlogSkin(input:unknown,actor:Actor){const draft=validateBlogSkin(input),image=await imageFor(draft,actor.id),logo=await imageFor({...draft,imageId:draft.logoImageId},actor.id);return {draft,svg:blogSkinSvg(draft,image,logo)};}
+export async function exportBlogSkin(input:unknown,actor:Actor){
+ const {draft,svg}=await renderBlogSkin(input,actor),files:Record<string,Uint8Array>={},coordinates=blogWidgetCoordinates(draft);
  files['skin-background-1920x900.png']=rasterizeSvg(svg);files['skin-background.svg']=strToU8(svg);
  for(const [name,width,height]of [['title-966x200',966,200],['thumbnail-1200x630',1200,630],['mobile-cover-1080x1080',1080,1080]] as const){
   const dark=draft.style==='corporate',bg=dark?'#0b1020':'#f6f3ee',fg=dark?'#f1f5f9':'#162032',size=height===200?32:height===1080?64:55;

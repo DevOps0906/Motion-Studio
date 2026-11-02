@@ -1,6 +1,7 @@
 import {promises as fs} from 'node:fs';
 import {strToU8, zipSync, type Zippable} from 'fflate';
-import {getWebsite} from '../../../../../lib/server/websites';
+import {getOwnedWebsite} from '../../../../../lib/server/websites';
+import {authorize} from '../../../../../lib/server/owner';
 import {resolveMedia, apiError} from '../../../../../lib/server/store';
 import {exportWebsiteHtml} from '../../../../../lib/website-export';
 import {websiteGalleryImageIds} from '../../../../../lib/website';
@@ -9,10 +10,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const EXTENSIONS: Record<string, string> = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp'};
 const TOTAL_LIMIT = 60 * 1024 ** 2;
-export async function GET(_request: Request, {params}: {params: Promise<{id: string}>}) {
+export async function GET(request: Request, {params}: {params: Promise<{id: string}>}) {
+  const actor = await authorize(request);
+  if (actor instanceof Response) return actor;
   const {id} = await params;
   let project;
-  try { project = await getWebsite(id); }
+  try { project = await getOwnedWebsite(id, actor); }
   catch (error) { return apiError(error, 404); }
   try {
     // Every distinct image is read once. The hero image is required; gallery images that no longer exist are skipped.

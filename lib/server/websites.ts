@@ -1,7 +1,8 @@
 import 'server-only';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
-import {DATA, listJson, readJson, writeJson, listMedia} from './store';
+import {DATA, listJson, readJson, writeJson, ownMedia, readOwned} from './store';
+import type {Actor, RecordAction} from './owner';
 import {validateWebsiteBrief, type WebsiteProject} from '../website';
 
 const directory = path.join(DATA, 'websites');
@@ -13,20 +14,25 @@ export async function getWebsite(id: string) {
   const project = await readJson<WebsiteProject>(websiteFile(id));
   return {...project, ...validateWebsiteBrief(project)};
 }
+// Owner-checked read for the editor API (the public preview and inquiry intake use getWebsite directly).
+export async function getOwnedWebsite(id: string, actor: Actor, action: RecordAction = 'view') {
+  const project = await readOwned<WebsiteProject>(() => websiteFile(id), actor, 'website', id, action);
+  return {...project, ...validateWebsiteBrief(project)};
+}
 export async function listWebsites() {
   return (await listJson<WebsiteProject>(directory)).map(project => ({...project, ...validateWebsiteBrief(project)})).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
-export async function saveWebsite(input: unknown, id?: string) {
+export async function saveWebsite(input: unknown, id: string | undefined, actor: Actor) {
+  const existing = id ? await getOwnedWebsite(id, actor, 'change') : undefined;
   const brief = validateWebsiteBrief(input);
-  const existing = id ? await getWebsite(id) : undefined;
   const galleryIds = [brief.gallery, ...brief.pages.map(page => page.content?.gallery ?? [])].flatMap(items => items.map(item => item.imageId));
   const imageIds = [brief.heroImageId, ...brief.pages.map(page => page.heroImageId ?? ''), ...galleryIds].filter(Boolean);
   if (imageIds.length) {
-    const media = await listMedia();
+    const media = await ownMedia(actor.id);
     if (imageIds.some(imageId => !media.some(m => m.id === imageId && m.type === 'image' && m.role !== 'source-capture'))) throw new Error('대표 이미지로 사용할 사진을 다시 선택해 주세요.');
   }
   const now = new Date().toISOString();
-  const project: WebsiteProject = {...brief, id: existing?.id ?? randomUUID(), schemaVersion: 1,
+  const project: WebsiteProject = {...brief, id: existing?.id ?? randomUUID(), ownerId: existing?.ownerId ?? actor.id, schemaVersion: 1,
     templateId: 'brand-landing-v1', createdAt: existing?.createdAt ?? now, updatedAt: now};
   await writeJson(websiteFile(project.id), project);
   return project;

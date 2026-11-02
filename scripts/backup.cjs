@@ -41,7 +41,12 @@ function createBackup(label='',{skipPrune=false}={}){
  }catch(error){fs.rmSync(partial,{recursive:true,force:true});throw error;}
  return {name,path:final,removed:skipPrune?[]:prune(backups)};
 }
-module.exports={createBackup,prune,listBackups,copyTree,SKIP,paths};
+// True while the web server answers its health URL (MOTION_STUDIO_URL, default http://127.0.0.1:$PORT or 3000). Maintenance scripts refuse to run then.
+async function serverAnswers(){
+ const base=(process.env.MOTION_STUDIO_URL||`http://127.0.0.1:${process.env.PORT||3000}`).replace(/\/+$/,'');
+ try{await fetch(base+'/api/health',{signal:AbortSignal.timeout(2000)});return true;}catch{return false;}
+}
+module.exports={createBackup,prune,listBackups,copyTree,SKIP,paths,serverAnswers};
 if(require.main===module){
  try{const result=createBackup();console.log(`백업 완료: ${path.relative(process.cwd(),result.path)}${result.removed.length?` (오래된 백업 ${result.removed.length}개 삭제)`:''}`);}
  catch(error){console.error('백업 실패: '+error.message);process.exit(1);}

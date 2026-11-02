@@ -11,11 +11,11 @@ function load(file){file=path.resolve(file);if(cache.has(file))return cache.get(
  const pixels=await sharp(transparent).ensureAlpha().raw().toBuffer();assert.ok(pixels.every((value,index)=>index%4!==3||value===0));
  assert.throws(()=>renderer.rasterizeSvg('<svg xmlns="http://www.w3.org/2000/svg" width="5000" height="100"/>'));
  const escaped=blog.blogSkinSvg({...good,brand:'<script>alert(1)</script>'});assert.ok(!escaped.includes('<script>'));
- const zip=unzipSync(await blog.exportBlogSkin(good));
+ const zip=unzipSync(await blog.exportBlogSkin(good,{id:'qa',operator:false}));
  for(const [file,width,height]of [['skin-background-1920x900.png',1920,900],['title-966x200.png',966,200],['thumbnail-1200x630.png',1200,630],['mobile-cover-1080x1080.png',1080,1080],['transparent-170x100.png',170,100],['transparent-170x500.png',170,500]]){const meta=await sharp(zip[file]).metadata();assert.equal(meta.width,width);assert.equal(meta.height,height);}
  assert.equal(Object.keys(zip).filter(file=>file.startsWith('widgets/')).length,5);
  assert.ok(strFromU8(zip['widgets/menu-1.html']).includes('__TRANSPARENT_IMAGE_URL__'));
  const coords=JSON.parse(strFromU8(zip['coordinates.json']));assert.equal(coords.naverPositionVerified,false);assert.equal(coords.coordinates.length,5);
- fs.mkdirSync('out/qa',{recursive:true});fs.writeFileSync('out/qa/blog-skin-example.png',zip['skin-background-1920x900.png']);fs.writeFileSync('out/qa/blog-skin-example.zip',await blog.exportBlogSkin(good));
+ fs.mkdirSync('out/qa',{recursive:true});fs.writeFileSync('out/qa/blog-skin-example.png',zip['skin-background-1920x900.png']);fs.writeFileSync('out/qa/blog-skin-example.zip',await blog.exportBlogSkin(good,{id:'qa',operator:false}));
  console.log('PASS: blog validation, menu bounds, resvg alpha, six PNG sizes, five widget codes and manual-install package');
 })().catch(error=>{console.error(error);process.exitCode=1;});
