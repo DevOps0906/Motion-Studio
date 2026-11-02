@@ -108,6 +108,9 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
  // Inquiry: public intake copies the website owner.
  res=await call('/api/inquiries','POST','/api/inquiries',null,{json:{websiteId:siteA.id,submissionKey:crypto.randomUUID(),name:'홍길동',contact:'guest@example.com',message:'문의합니다.',consent:true,website:''}});assert.equal(res.status,201);
  const listA=await (await call('/api/inquiries','GET','/api/inquiries',A)).json();assert.equal(listA.length,1);const inqA=listA[0];assert.equal(inqA.ownerId,A.id);
+ // task-011: a finished transcript written directly (starting one would spawn the worker).
+ const trId=crypto.randomUUID();fs.mkdirSync(path.join(data,'transcripts'),{recursive:true});
+ fs.writeFileSync(path.join(data,'transcripts',trId+'.json'),JSON.stringify({ownerId:A.id,id:trId,mediaId:privMedia.id,mediaName:'a.mp4',durationSeconds:20,engine:'local',mode:'accurate',language:'ko',status:'done',progress:1,stage:'완료',createdAt:now,updatedAt:now,segments:[{start:0,end:2,text:'안녕'}]}));
  console.log('PASS: seed — records created through the handlers carry the session account as owner, client ownerId ignored, inquiry owner copied from the website');
 
  // ---- 1. dynamic table: every exported method of every route must be classified; foreign ids give the fixed 404
@@ -132,15 +135,20 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
   'GET /api/renders/[id]/download':{url:`/api/renders/${jobId}/download`,params:{id:jobId}},
   'GET /api/renders/[id]/capcut':{url:`/api/renders/${jobId}/capcut`,params:{id:jobId}},
   'GET /api/renders/[id]/assets/[assetId]':{url:`/api/renders/${jobId}/assets/${privMedia.id}`,params:{id:jobId,assetId:privMedia.id}},
+  'GET /api/transcripts/[id]':{url:`/api/transcripts/${trId}`,params:{id:trId}},
+  'PATCH /api/transcripts/[id]':{url:`/api/transcripts/${trId}`,params:{id:trId},json:{segments:[{start:0,end:1,text:'x'}]}},
+  'DELETE /api/transcripts/[id]':{url:`/api/transcripts/${trId}`,params:{id:trId}},
+  'POST /api/transcripts/[id]/cancel':{url:`/api/transcripts/${trId}/cancel`,params:{id:trId}},
+  'GET /api/transcripts/[id]/export':{url:`/api/transcripts/${trId}/export`,params:{id:trId}},
   'GET /api/websites/[id]':{url:`/api/websites/${siteA.id}`,params:{id:siteA.id}},
   'PATCH /api/websites/[id]':{url:`/api/websites/${siteA.id}`,params:{id:siteA.id},json:siteA},
   'GET /api/websites/[id]/export':{url:`/api/websites/${siteA.id}/export`,params:{id:siteA.id}},
   'PATCH /api/inquiries/[id]':{url:`/api/inquiries/${inqA.id}`,params:{id:inqA.id}},
  };
- const LISTS=['GET /api/projects','GET /api/media','GET /api/models','GET /api/renders','GET /api/websites','GET /api/blog-skins','GET /api/inquiries'];
- const CREATES=['POST /api/projects','POST /api/media','POST /api/models','POST /api/websites','POST /api/blog-skins','POST /api/content-projects','POST /api/create-intro','POST /api/renders','POST /api/media/prepare','POST /api/blog-skins/export','POST /api/blog-skins/preview','GET /api/inquiries/unread'];
+ const LISTS=['GET /api/projects','GET /api/media','GET /api/models','GET /api/transcripts','GET /api/renders','GET /api/websites','GET /api/blog-skins','GET /api/inquiries'];
+ const CREATES=['POST /api/projects','POST /api/media','POST /api/models','POST /api/transcripts','POST /api/websites','POST /api/blog-skins','POST /api/content-projects','POST /api/create-intro','POST /api/renders','POST /api/media/prepare','POST /api/blog-skins/export','POST /api/blog-skins/preview','GET /api/inquiries/unread'];
  // No stored data of an account is read or written by these.
- const NO_DATA=['GET /api/blog-skins/generate','POST /api/blog-skins/generate','GET /api/websites/draft','POST /api/websites/draft','POST /api/integrations/capcut/launch','GET /api/website-requirements','GET /api/templates','GET /api/website-references'];
+ const NO_DATA=['GET /api/transcripts/engines','GET /api/blog-skins/generate','POST /api/blog-skins/generate','GET /api/websites/draft','POST /api/websites/draft','POST /api/integrations/capcut/launch','GET /api/website-requirements','GET /api/templates','GET /api/website-references'];
  const PUBLIC=['GET /api/auth','POST /api/auth','DELETE /api/auth','POST /api/inquiries','POST /api/website-requirements','GET /api/health'];
  const found=[];
  for(const file of routeFiles){
@@ -167,11 +175,11 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
  for(const key of LISTS){
   const [method,route]=key.split(' ');
   const body=await (await call(route,method,route,B)).text();
-  for(const id of [projA.id,privMedia.id,pubMedia.id,modelA.id,jobId,siteA.id,skinA.id,inqA.id])assert.ok(!body.includes(id),`${key} lists another account's item`);
+  for(const id of [projA.id,privMedia.id,pubMedia.id,modelA.id,jobId,siteA.id,skinA.id,inqA.id,trId])assert.ok(!body.includes(id),`${key} lists another account's item`);
   const own=await (await call(route,method,route,A)).text();
   if(route!=='/api/media')assert.ok(own.length>2,`${key} owner sees own list`);
   const widened=await call(route,method,route+'?owner=all',B);assert.ok(widened.status<300);
-  const widenedText=await widened.text();for(const id of [projA.id,privMedia.id,modelA.id,jobId,siteA.id,skinA.id,inqA.id])assert.ok(!widenedText.includes(id),'non-operators cannot widen scope '+key);
+  const widenedText=await widened.text();for(const id of [projA.id,privMedia.id,modelA.id,jobId,siteA.id,skinA.id,inqA.id,trId])assert.ok(!widenedText.includes(id),'non-operators cannot widen scope '+key);
   checked++;
  }
  assert.deepEqual(await (await call('/api/inquiries/unread','GET','/api/inquiries/unread',B)).json(),{count:0});
@@ -197,6 +205,7 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
  res=await call('/api/content-projects','POST','/api/content-projects',B,{json:{...projA,contentType:'ranking-short'}});assert.equal(res.status,404);
  res=await call('/api/create-intro','POST','/api/create-intro',B,{json:{templateId:'photo-wall-intro-v1',photoIds:['a1','a2','a3','a4','a5','a6'],logoAssetId:privMedia.id}});assert.equal(res.status,400);
  res=await call('/api/renders','POST','/api/renders',B,{json:{project:projA}});assert.equal(res.status,400,'render of an account referencing foreign media is refused');
+ res=await call('/api/transcripts','POST','/api/transcripts',B,{json:{mediaId:privMedia.id,ownerId:A.id}});assert.equal(res.status,404,'transcribing another account media');assert.deepEqual(await res.json(),NF);
  res=await call('/api/media','POST','/api/media',B,{form:(()=>{const form=new FormData();form.append('file',new File([Buffer.from('x')],'v.mp4'));form.append('sourceAssetId',privMedia.id);return form;})()});assert.equal(res.status,400);
  res=await call('/api/media/[id]/crop','POST','/x',B,{json:{left:0,top:0,width:50,height:50}},{id:bMedia.id});assert.equal(res.status,201,'own media can be cropped');const bCrop=await res.json();assert.equal(bCrop.ownerId,B.id);
  res=await call('/api/media/prepare','POST','/api/media/prepare',B);assert.equal(res.status,200);

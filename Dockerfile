@@ -1,6 +1,19 @@
-﻿FROM node:24-bookworm-slim
+﻿# task-011: whisper.cpp is built from a pinned source commit (v1.9.5). Nothing is downloaded at install or run time; only the executable is copied into the final image. Not built on the dev PC yet (unverified).
+FROM debian:bookworm-slim AS whisper-build
+ARG WHISPER_COMMIT=d1be6fde11ac6e0407606b4e42fe72d34add8037
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential cmake git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN git init /src && cd /src \
+    && git fetch --depth 1 https://github.com/ggml-org/whisper.cpp.git "$WHISPER_COMMIT" \
+    && git checkout FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "$WHISPER_COMMIT" \
+    && cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DWHISPER_BUILD_TESTS=OFF \
+    && cmake --build build -j"$(nproc)" --target whisper-cli
+
+FROM node:24-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
+    STT_MODEL_DIR=/app/models-stt \
     NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
@@ -16,6 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 libxfixes3 libxkbcommon0 libxrandr2 libxrender1 libxshmfence1 libxtst6 \
     && rm -rf /var/lib/apt/lists/*
 
+COPY --from=whisper-build /src/build/bin/whisper-cli /usr/local/bin/whisper-cli
+
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -29,7 +44,8 @@ RUN npm run build \
 USER node
 
 EXPOSE 3000
-VOLUME ["/app/.local-data", "/app/out", "/app/backups"]
+# /app/models-stt holds the speech models (npm run stt:model, SHA256 verified); mount it read-only while the server runs. It is not part of backups.
+VOLUME ["/app/.local-data", "/app/out", "/app/backups", "/app/models-stt"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]

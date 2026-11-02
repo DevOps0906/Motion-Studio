@@ -1,6 +1,7 @@
 ﻿node_modules
 .next
 .local-data
+.stt-models
 out
 .git
 .gitignore

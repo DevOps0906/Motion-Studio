@@ -1,6 +1,7 @@
 import {fileFor,readJson,resolveMedia,streamFile,apiError,deleteMedia,validId} from '../../../../lib/server/store';
 import {allow,authorize,notFoundResponse} from '../../../../lib/server/owner';
 import {isWebsiteCoverImage} from '../../../../lib/access-policy';
+import {deleteTranscriptsForMedia} from '../../../../lib/server/transcribe-store';
 import type {MediaAsset} from '../../../../lib/model';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 // Allowed: own item, shared source-* sample, an image a public page of the media owner shows (cover/gallery), or the operator (audited). Everything else is the fixed 404.
@@ -20,4 +21,12 @@ export async function GET(request:Request,{params}:{params:Promise<{id:string}>}
  }catch(e){return apiError(e,404);}
 }
 
-export async function DELETE(request:Request,{params}:{params:Promise<{id:string}>}){try{const actor=await authorize(request);if(actor instanceof Response)return actor;await deleteMedia((await params).id,actor);return Response.json({ok:true});}catch(e){return apiError(e);}}
+// Transcripts made from the media go first (only when the actor may delete the media); a failure is logged by id, never by content.
+async function cleanTranscripts(id:string,actor:{id:string;operator:boolean}){
+ try{
+  if(!validId(id)||id.startsWith('source-'))return;
+  const record=await readJson<MediaAsset>(fileFor('media',id));
+  if(record.ownerId===actor.id||actor.operator)await deleteTranscriptsForMedia(id);
+ }catch(error){if((error as NodeJS.ErrnoException)?.code!=='ENOENT')console.error('transcript cleanup failed for media',id);}
+}
+export async function DELETE(request:Request,{params}:{params:Promise<{id:string}>}){try{const actor=await authorize(request);if(actor instanceof Response)return actor;const {id}=await params;await cleanTranscripts(id,actor);await deleteMedia(id,actor);return Response.json({ok:true});}catch(e){return apiError(e);}}

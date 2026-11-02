@@ -87,3 +87,49 @@
 5. 뷰 스키마: `view.schemaVersion = 1`, 모델당 최대 20개. 모르는 필드나 다른 버전은 400을 낸다(B의 키프레임, C의 override는 다음 버전에서 추가).
 6. A6 메모리: 동시 업로드 2건 제한으로 처리한다(1항). 상한 하향(20MiB)은 H2 결정 때 다시 본다.
 - B·C·H2는 각 작업에 들어가기 전에 challenger를 다시 거친다. 그 명세가 답해야 할 것은 이 장의 근거가 된 리뷰 B1~B3·H2·C1이다. B안 PoC 결과: Windows에서 R3F+GLB 카메라 보간을 1280×720·30fps·3초로 렌더했을 때 swiftshader 7.4초, swangle 11.5초였다(worktree `worktree-agent-a88ee708aa8c19f44`의 poc/3d-render/README.md). Linux·Docker는 확인하지 않았다.
+
+## 9. B안 결정 (2026-11-02, challenger REVISE 반영 — ❓는 사용자 결정 대기)
+1. 상한: 3D 렌더는 최대 1280×720, 30fps, 10초. validateProject의 일반 상한과는 따로 둔다.
+2. 작업 시간 상한: 3D 작업 하나는 전체 5분까지. 워커 안의 타이머가 넘으면 kill하고, getJob은 pid가 살아 있어도 시작 시각과 상한을 보고 failed로 바꾼다. 종료는 프로세스 트리 전체(Windows taskkill /T, Linux 프로세스 그룹). 렌더 잠금은 전역 1개를 유지한다.
+3. 자산: `input.model`을 따로 두고, 렌더 스냅샷에 GLB 복사본을 만든 뒤 **복사본에** validateGlb를 실행한다. 렌더러는 기존 `/api/renders/:id/assets/:assetId` 토큰 경로로 받는다(mimeType model/gltf-binary). 렌더가 끝나면(완료·실패·취소) render-files 복사본을 지운다.
+4. 외부 네트워크: validateGlb가 `extensionsUsed`에 KHR_draco_mesh_compression·EXT_meshopt_compression이 있어도 거부한다(A안 보완). 렌더와 뷰어 모두 `useGLTF(url, false, false)`로 디코더를 끈다.
+5. 참조 소유: saveProject와 startRender에서 getOwnedModel(actor.id)를 확인하고, 뷰가 그 모델에 있는지, invalid가 아닌지도 확인한다. 운영자도 남의 모델은 404.
+6. 데이터: Project schemaVersion 1에 선택 필드 `scene3d {modelId, keyframes[{viewId 복사본 camera, atSeconds}], easing}`를 추가한다. 렌더 때는 뷰 카메라를 **복사**해 넣어 결과를 고정한다. 키프레임은 2~8개, 0~10초 단조 증가, easing은 linear·easeInOut. 서버가 카메라 범위를 다시 검사한다.
+7. gl: 기본 REMOTION_GL(swangle)을 유지한다. Linux·Docker 실측은 B안 완료 조건에 넣는다(착수 조건은 아님).
+8. ❓ 3D 클립을 어떤 형태로 만들지(새 콘텐츠 형식 "3D 워크스루" 단독 영상 / 기존 인트로의 한 구간).
+
+## 10. C안 결정 (2026-11-02, challenger REVISE 반영 — ❓는 사용자 결정 대기)
+- C1 원문(누락분): GLTFExporter는 draco·meshopt를 풀어 100MiB를 넘길 수 있고, 지원하지 않는 KHR 확장을 떨어뜨린다. 노드 이름은 고유하지 않다. 편집본은 새 id라 원본 뷰·override가 따라오지 않는다 → override 키는 원본 노드 index로 하고, 내보낸 파일도 A1 검증을 통과해야 한다.
+1. 데이터: 뷰 v2가 아니라 모델별 **편집 문서** `edits.json`(모델 폴더 안, revision 필드)을 둔다. override는 최대 500개, 본문 상한 64KB. 저장할 때 revision이 다르면 409(lost update 방지).
+2. 키: 로드할 때 GLTFLoader의 `parser.associations`로 원본 노드 index를 `userData.nodeIndex`에 새긴 뒤 clone한다. primitive가 여러 개인 mesh는 부모 노드 index를 쓴다. 재질 override도 노드 단위로 하고 적용할 때 재질을 복제한다. 원본→clone→index 대응을 테스트로 증명한다.
+3. 편집 종류: 이동(±1000, 원본 노드 local TRS 기준), 회전(euler deg, ±360), 크기(0.01~100), 숨김, 재질 색(#hex, 텍스처가 있으면 곱셈)·roughness(0~1). metalness는 제외한다. `matrix`로 정의된 노드는 편집 대상에서 뺀다.
+4. 층 분해와의 순서: override를 먼저 적용하고 분해 오프셋을 나중에 더한다. 내보낼 때는 분해를 끈 상태로 내보낸다.
+5. 내보내기: 클라이언트 GLTFExporter(binary)로 만들어 기존 POST /api/models로 올린다(validateGlb·100MiB·업로드 슬롯 그대로). 숨긴 노드는 삭제하고, extras(storeyId)를 보존하는지 테스트한다. 상한을 넘으면 서버 400 안내. **데스크톱(1200px 이상)만** 허용한다.
+6. 뷰 복사: 편집본은 새 모델이고 뷰는 복사하지 않는다(재중심 공간이 바뀜). `sourceModelId`를 기록하고, 원본을 삭제해도 편집본은 남는다. 원본을 삭제하면 원본의 edits.json도 같이 지운다.
+7. 소유: 편집 저장·내보내기 원본 확인은 모두 'change'로 한다(운영자도 남의 모델은 404). 동적 권한 테스트에 넣는다.
+8. 되돌리기: 클라이언트 undo 스택(50단계)만 둔다. 서버 리비전은 1항의 revision(409)으로 충분하다.
+9. 재검증 비용: B·C·H2 진입 때 하는 validateGlb 결과는 모델 JSON에 `validatedAt`·파일 mtime·크기와 함께 저장하고, 같으면 다시 하지 않는다. 다시 할 때는 업로드 슬롯을 같이 쓴다.
+10. 성능: 노드 2,000개가 넘으면 씬 트리를 가상화하고 선택은 클릭 시 raycast 1회. 실측 대상은 pavilion-demo.glb와 노드 수천 개 합성 모델, 이 PC 데스크톱 Chrome.
+11. 검증: 편집 → 내보내기 → 다시 업로드 → 다시 열기 후 노드 수와 TRS를 비교한다. 내장 샘플(Building, GLB 아님)은 C안 대상에서 제외한다.
+12. ❓ 편집본 GLB 내보내기가 꼭 필요한지(편집 문서만 저장해도 영상·웹에 반영 가능). B 렌더와 웹 뷰어가 편집 문서를 적용하는지(의존 순서).
+
+## 11. H2(웹사이트 3D 연결) 사용자 결정 (2026-11-02)
+- 공개 파일은 **공개용 정리본**이다(노드 이름·extras 제거 사본, 원본은 비공개). 웹 공개 상한은 **20MB**.
+
+## 12. 사용자 결정 반영 (2026-11-02)
+- B안 형식: **새 콘텐츠 형식 "3D 워크스루"**(contentType `walkthrough-3d`, 단독 영상, 사진 0장 허용). 기존 인트로 렌더 흐름은 바꾸지 않는다. 9장 8항 확정.
+- C안 범위: **편집 저장 + 영상·웹 반영**. GLB 내보내기(10장 5·6항)는 이번 범위에서 빼고 나중 후보로 둔다. 10장 12항 확정: B 렌더와 H2 정리본은 edits.json을 적용한다.
+- 진행 순서(팀장): B·C를 병렬로 구현한다(B는 렌더·모델 검증, C는 뷰어·편집 문서). edits.json 적용 함수는 C가 `lib/cad-edits.ts`(순수 함수)로 먼저 만들고, B와 H2는 그 함수를 가져다 쓴다. H2는 B(9장 4항 extensionsUsed 차단)와 C(편집 적용 함수)가 끝난 뒤 착수한다.
+
+## 13. H2 결정 (2026-11-02, challenger REVISE 반영 — 팀장 기본값, 이 장이 11장의 세부를 정한다)
+1. 섹션: `model3d`를 DEFAULT_WEBSITE_SECTIONS와 ADDED_SECTION_IDS 끝에 숨김으로 추가하고, 섹션 길이는 3·5·6·7을 허용한다. 모델 참조는 **사이트 단위로만** 둔다(page.content에는 두지 않음).
+2. 정리 규칙: node·mesh·material·scene·image 이름, extras(storeyId만 남기고 값은 `s1`·`s2`… 순번으로 바꿈), asset.generator·copyright, cameras, KHR_lights를 제거한다. storeyId는 웹에서 층 표시·분해를 재현하는 데 필요하고, 순번으로 바꿔 원본 식별 정보는 남기지 않는다. 정리 전후 경계 상자가 같은지 테스트한다.
+3. 생성·무효화: 소유자가 사이트를 저장할 때 만든다(익명 요청 때 만드는 지연 생성은 금지). 위치는 `.local-data/models/{id}.public.glb`, 키는 원본 mtime·크기, edits revision, 정리 규칙 버전이다. 모델 삭제·invalid 표시·edits 변경 때 같은 큐에서 지운다.
+4. 검증: 정리본에도 validateGlb를 실행한다(10장 9항 캐시 적용). B의 extensionsUsed 차단이 먼저 끝나야 한다.
+5. 공개: `GET /api/models/:id/public`(ApiAccess `public-model`). 조건은 소유자 사이트에서 켜진 model3d 섹션이 참조하고, 모델 ownerId가 사이트 ownerId와 같고, invalid가 아닌 것이다. 요청마다 판정하고 캐시하지 않으며 `Cache-Control: no-store`. 원본 /asset는 계속 비공개다.
+6. 20MB: 정리본이 20MB를 넘으면 사이트 저장 때 400과 함께 안내하고 자동 축소는 하지 않는다(이름 정리로는 용량이 거의 줄지 않음).
+7. 내보내기: three 런타임은 빌드 때 IIFE 번들(로컬 산출물, CDN 금지)로 만들어 ZIP `assets/`에 넣고 GLB도 `assets/`에 파일로 넣는다. ZIP README에 "3D는 웹 서버에서 열 때 보입니다(file://에서는 대표 이미지만 보임)"를 적는다. 단일 HTML에서는 3D 섹션을 대표 이미지로 대체한다. 60MB TOTAL_LIMIT에 GLB도 포함한다.
+8. CSP: 내보낸 HTML에 meta CSP를 넣는다(script-src 'self', connect-src 'self', img-src 'self' data: blob:). 앱의 공개 미리보기에도 같은 정책을 응답 헤더로 둔다.
+9. 뷰: 저장 때 뷰 카메라를 **복사**한다(결과 고정). 뷰가 없으면 Bounds 기본 시점을 쓴다.
+10. 모바일: 대표 이미지(포스터)를 먼저 보여 주고 눌러야 3D를 불러온다. DPR 상한 1.5. 실측 기기는 Chrome 390px 에뮬레이션이고, 실기기는 베타 전 확인 항목으로 둔다.
+11. 동적 권한 테스트는 challenger 11항 목록을 그대로 넣는다.

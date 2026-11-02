@@ -289,6 +289,16 @@ docker compose logs -f motion-studio
 - 로그인 없이 열리는 화면은 `/login`·`/website-requirements`·저장된 웹사이트 미리보기(`/websites/[id]`)뿐이며, 나머지 화면·API는 로그인이 필요합니다. 컨테이너는 비root(`node`, uid 1000)로 실행되고 상태 확인은 `/api/health`를 씁니다.
 - 운영자 계정 생성·백업(`npm run backup`)·복구(`npm run restore -- <폴더> --yes`)·호스트 폴더 권한은 [운영 준비 문서](docs/development/OPERATIONS.md)를 따릅니다.
 
+### 음성 인식 자막 (task-011)
+- 자막 템플릿(`captioned-video`)의 "음성으로 자막 채우기"는 업로드한 영상·오디오(**5분 이하**)를 시간 구간 문장으로 바꿔 문장을 채우고 SRT로 내보냅니다. 결과는 틀릴 수 있으므로 문장·시간을 직접 확인합니다. 단어 단위 시간·화자 분리는 없습니다.
+- **로컬 엔진(기본)**: whisper.cpp v1.9.5(커밋 `d1be6fde11ac6e0407606b4e42fe72d34add8037`)를 Dockerfile 멀티스테이지에서 소스로 빌드합니다. npm 패키지·설치 후 내려받기는 쓰지 않습니다. Docker 빌드는 이 개발 PC에서 아직 확인하지 않았습니다(미검증).
+- **모델 설치(운영자, 서버를 멈춘 상태에서)**: `npm run stt:model -- small`(기본 "정확하게") / `base`(빠르게) / `all`. 출처는 Hugging Face `ggerganov/whisper.cpp` 리비전 `5359861c739e955e79d9a303bcbc70fb988958b1`이고 스크립트에 고정한 SHA256과 다르면 파일을 지우고 종료 코드 1로 끝나며 그 모델은 꺼집니다(`manifest.json`에서 제거). 기본 위치는 `.stt-models/`(Git 제외), Docker는 `/app/models-stt` 볼륨이며 백업 대상이 아닙니다. 서버 실행 중에는 읽기 전용으로 연결하세요. small은 약 465MiB, base는 약 141MiB입니다.
+- 라이선스: whisper.cpp 코드와 Whisper 모델 가중치 모두 MIT(Hugging Face 카드 기준). SBOM·라이선스 기록은 수동 항목입니다.
+- **처리 방식**: 작업은 `render.lock`을 렌더와 공유해 한 번에 하나만 돌고, 렌더 중이면 "대기" 상태로 기다립니다. 계정당 진행 작업은 1건, 전체 5건까지입니다. ffmpeg는 저장된 형식으로 `-f`를 고정하고 `-protocol_whitelist file -nostdin -map 0:a:0 -t 300`으로 16kHz 모노 WAV를 만듭니다(오디오 트랙이 없으면 실패). 취소·타임아웃(기본 10분)이면 프로세스 트리 전체를 끝냅니다. 결과 상한은 구간 500개·구간당 200자이며 시작<끝, 시간 순서 유지, 영상 길이 이내입니다. 임시 오디오는 작업이 끝나면 지웁니다. 로그에는 전사 텍스트·오디오·파일 경로를 남기지 않습니다.
+- **외부 엔진(선택, 운영자만)**: `OPENAI_API_KEY`와 `OPENAI_STT_MODEL`이 둘 다 있을 때만 켜집니다(웹사이트·블로그 AI 설정과 별개). 모델은 `verbose_json` 구간 시간을 돌려주는 전사 모델이어야 합니다. 운영자 **본인 소유** 미디어의 오디오만 보내며 **요청마다** 동의 확인(`consent: true`)이 없으면 외부 호출은 0건입니다. 테스트·점검용으로 `STT_REMOTE_ENDPOINT`(https 또는 로컬 http)로 주소를 바꿀 수 있습니다. 국외 이전 고지 문서 변경 여부는 외부 엔진을 운영에 켜기 전에 다시 확인합니다.
+- 환경 변수: `STT_MODEL_DIR`, `STT_WHISPER_BIN`(기본 `/usr/local/bin/whisper-cli`), `STT_FFMPEG_BIN`, `STT_THREADS`(기본 4 이하), `STT_TIMEOUT_MS`(기본 600000).
+- API: `POST/GET /api/transcripts`, `GET /api/transcripts/engines`, `GET·PATCH·DELETE /api/transcripts/:id`, `POST …/cancel`, `GET …/export`(SRT: CRLF·UTF-8·BOM 없음, 편집본 기준). 남의 전사는 고정 404이고 미디어를 지우면 그 미디어의 전사도 지워집니다. 사람 음성 샘플 벤치마크(base/small 정확도 확정)와 Docker 실제 전사 1회는 운영자가 수동으로 확인합니다.
+
 ### 계정별 자료 분리 (task-008)
 - 프로젝트·미디어·웹사이트·블로그 스킨·모델·렌더·문의는 만든 계정의 것만 보입니다. 남의 자료 ID는 없는 ID와 같은 `404 {"error":"찾을 수 없습니다."}`입니다. 샘플(`source-*`)과 공개 미리보기(`/websites/[id]`)에 쓰인 대표·갤러리 이미지는 공개입니다.
 - 운영자(`REQUIREMENTS_ADMIN_EMAILS`에 든 이메일만, localhost 예외 없음)는 남의 자료를 보기·삭제할 수 있고 목록은 `?owner=all`로 봅니다. 그 행위만 `.local-data/audit.log`에 한 줄 JSON(시각·운영자 id·동작·종류·대상 id·대상 소유자 id)으로 남기며 이메일·이름·문의 본문·IP는 넣지 않습니다. 백업에 포함됩니다.

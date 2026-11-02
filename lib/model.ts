@@ -1,7 +1,8 @@
 import {validateCreativeContent,type CreativeContent} from './content-template-data';
 import {motionPresets,renderResolutions,type MotionPresetId} from './motion-presets';
 export type MediaAsset = {ownerId?:string; id:string; name:string; type:'image'|'video'|'audio'; role:'source-capture'|'photo'|'derived-photo'|'reference-video'|'audio'; mimeType:string; sizeBytes:number; url:string; createdAt:string; sourceAssetId?:string; crop?:{left:number;top:number;width:number;height:number}; width?:number;height?:number;durationSeconds?:number};
-export type Project = {ownerId?:string;id:string;schemaVersion:1;contentType?:'intro'|'ranking-short'|'captioned-video'|'product-comparison';creative?:CreativeContent;templateId?:string;templateVersion?:number;title:string;createdAt:string;updatedAt:string;durationSeconds:number;fps:number;resolution:{width:number;height:number};photos:string[];template:MotionPresetId;background:string;tileScale:number;gap:number;radius:number;brand:{title:string;subtitle:string;color:string;startSeconds:number;endSeconds:number;logoAssetId?:string;align?:'left'|'center'|'right';placement?:'bottom'|'center';logoScale?:number;logoOpacity?:number};audio:{assetId?:string;volume:number;startSeconds:number;trimStartSeconds:number;fadeInSeconds:number;fadeOutSeconds:number}};
+export type CaptionSegment = {start:number;end:number;text:string};
+export type Project = {captions?:CaptionSegment[];ownerId?:string;id:string;schemaVersion:1;contentType?:'intro'|'ranking-short'|'captioned-video'|'product-comparison';creative?:CreativeContent;templateId?:string;templateVersion?:number;title:string;createdAt:string;updatedAt:string;durationSeconds:number;fps:number;resolution:{width:number;height:number};photos:string[];template:MotionPresetId;background:string;tileScale:number;gap:number;radius:number;brand:{title:string;subtitle:string;color:string;startSeconds:number;endSeconds:number;logoAssetId?:string;align?:'left'|'center'|'right';placement?:'bottom'|'center';logoScale?:number;logoOpacity?:number};audio:{assetId?:string;volume:number;startSeconds:number;trimStartSeconds:number;fadeInSeconds:number;fadeOutSeconds:number}};
 export type RenderJob = {ownerId?:string;assetToken?:string;id:string;projectId:string;projectSnapshot:Project;status:'queued'|'processing'|'completed'|'failed'|'canceled';progress:number;stage:string;createdAt:string;updatedAt:string;error?:string;pid?:number;outputPath?:string};
 // Saved viewer settings. Coordinates are in the re-centered clone space of the viewer (x/z centered on the model, y=0 at its lowest point).
 export type CadView = {id:string;schemaVersion:1;name:string;camera:{position:[number,number,number];target:[number,number,number]};floors:boolean[];exploded:boolean;background:string;createdAt:string;updatedAt:string};
@@ -9,6 +10,20 @@ export type CadModelAsset = {ownerId?:string;id:string;name:string;sizeBytes:num
 export const DEFAULT_PROJECT:Project = {id:'preview',schemaVersion:1,title:'나의 첫 인트로',createdAt:'',updatedAt:'',durationSeconds:15,fps:30,resolution:{width:1920,height:1080},photos:[],template:'mosaic',background:'#080c17',tileScale:1,gap:1,radius:.08,brand:{title:'IDEAS INTO MOTION',subtitle:'PHOTO WALL STUDIO',color:'#ffffff',startSeconds:11.8,endSeconds:15},audio:{volume:.5,startSeconds:0,trimStartSeconds:0,fadeInSeconds:.5,fadeOutSeconds:1}};
 export const templates = motionPresets;
 export {renderResolutions};
+// task-011: transcript/caption output limits. Segments are monotonic (start<end, none starts before the previous one ends) and, when the media length is given, inside it.
+export const MAX_CAPTION_SEGMENTS=500,MAX_CAPTION_CHARS=200;
+export function validateSegments(value:unknown,durationSeconds?:number):CaptionSegment[] {
+ if(!Array.isArray(value)||value.length>MAX_CAPTION_SEGMENTS)throw new Error(`자막 구간은 ${MAX_CAPTION_SEGMENTS}개 이하여야 합니다.`);
+ let previousEnd=0;
+ return value.map((item:unknown)=>{
+  const s=item as Partial<CaptionSegment>|null;
+  if(!s||typeof s!=='object'||typeof s.start!=='number'||typeof s.end!=='number'||!Number.isFinite(s.start)||!Number.isFinite(s.end)||typeof s.text!=='string')throw new Error('자막 구간 형식이 올바르지 않습니다.');
+  const text=s.text.trim(),start=Math.round(s.start*1000)/1000,end=Math.round(s.end*1000)/1000;
+  if(!text||[...text].length>MAX_CAPTION_CHARS)throw new Error(`자막 문장은 1~${MAX_CAPTION_CHARS}자여야 합니다.`);
+  if(start<0||end<=start||start<previousEnd||(durationSeconds!==undefined&&end>durationSeconds+.05))throw new Error('자막 시간은 시작이 끝보다 앞서고, 앞 구간 뒤에서 이어지며, 영상 길이 안이어야 합니다.');
+  previousEnd=end;return {start,end,text};
+ });
+}
 export function validateProject(value:unknown):Project {
  if(!value || typeof value!=='object') throw new Error('프로젝트 데이터가 올바르지 않습니다.');
  const p=value as Project;
@@ -30,6 +45,7 @@ export function validateProject(value:unknown):Project {
  if(b.logoAssetId && !/^[a-zA-Z0-9-]+$/.test(b.logoAssetId))throw new Error('로고 ID가 올바르지 않습니다.');
  if(!a||[a.volume,a.startSeconds,a.trimStartSeconds,a.fadeInSeconds,a.fadeOutSeconds].some(v=>!finite(v))||a.volume<0||a.volume>1||a.startSeconds<0||a.startSeconds>p.durationSeconds||a.trimStartSeconds<0||a.fadeInSeconds<0||a.fadeOutSeconds<0||a.fadeInSeconds+a.fadeOutSeconds>p.durationSeconds-a.startSeconds)throw new Error('오디오 구간과 페이드를 확인해 주세요.');
  if(a.assetId && !/^[a-zA-Z0-9-]+$/.test(a.assetId))throw new Error('오디오 ID가 올바르지 않습니다.');
+ if(p.captions!==undefined)validateSegments(p.captions);
  if(p.contentType&&p.contentType!=='intro'){validateCreativeContent(p.creative,p.templateId,p.contentType);if((p.contentType==='product-comparison')!==(p.resolution.width>p.resolution.height))throw Error('콘텐츠 화면 비율을 확인해 주세요.');}
  return p;
 }

@@ -1,7 +1,7 @@
 // Shared by migrate:owner and account:delete (server stopped). Every write is one file at a time via temp file + rename,
 // and only touches records by their ownerId, so an interrupted run is finished by running it again.
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),{DatabaseSync}=require('node:sqlite');
-const OWNER_DIRS=['projects','media','websites','blog-skins','renders','models'];
+const OWNER_DIRS=['projects','media','websites','blog-skins','renders','models','transcripts'];
 function readRecord(file){try{return JSON.parse(fs.readFileSync(file,'utf8'));}catch{return null;}}
 function writeAtomic(file,value){const temp=file+'.'+crypto.randomUUID()+'.tmp';fs.writeFileSync(temp,JSON.stringify(value,null,2));fs.renameSync(temp,file);}
 function records(data){
