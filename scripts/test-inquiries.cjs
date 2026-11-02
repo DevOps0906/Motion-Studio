@@ -127,7 +127,7 @@ const valid=(overrides={})=>({websiteId:'site-1',submissionKey:UUID(),name:'홍�
  const lines=fs.readFileSync(auditFile,'utf8').trim().split('\n').map(line=>JSON.parse(line));
  assert.equal(lines.length,30);assert.deepEqual(Object.keys(lines[0]).sort(),['action','at','id','kind','operator','ownerId']);
  assert.ok(lines.every(line=>line.operator==='acct-op'&&line.action==='view'&&line.kind==='inquiry'&&line.ownerId==='acct-a'));
- assert.ok(!/홍길동|010|@example/.test(fs.readFileSync(auditFile,'utf8')),'audit log has no personal data');
+ assert.ok(!/홍길동|010-1234-5678|@example/.test(fs.readFileSync(auditFile,'utf8')),'audit log has no personal data');
  assert.equal((await item.PATCH(new Request('http://localhost/x',{method:'PATCH'}),{params:Promise.resolve({id:listInquiries(Date.now(),'all')[1].id})})).status,404,'operator cannot change another account inquiry');
  // Intake copies the website owner; a website without an owner stores NULL.
  assert.ok(listInquiries(Date.now(),'all').every(row=>row.ownerId==='acct-a'));

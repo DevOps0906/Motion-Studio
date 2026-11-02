@@ -1,7 +1,7 @@
 import 'server-only';
 import {appendFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
-import {isAdminEmail} from '../account-store';
+import {isAdminEmail,listAccounts} from '../account-store';
 import {currentAccount} from './accounts';
 // Per-account data separation. Every route resolves an Actor from the session and checks records through this file only.
 // Another account's item and a missing item are the same fixed 404, so existence cannot be probed.
@@ -42,3 +42,6 @@ export async function visible<T extends {id:string;ownerId?:string}>(actor:Actor
  await audit(actor,'view',kind,records.filter(record=>!shared(record)&&record.ownerId&&record.ownerId!==actor.id));
  return records;
 }
+// Display-only label for the operator's all-accounts view: account name plus masked email (sk***@gmail.com). Never the raw email.
+export function maskEmail(email:string){const [local,domain]=email.split('@');return domain?`${local.length>2?local.slice(0,2):''}***@${domain}`:'***';}
+export async function ownerLabels(){return new Map((await listAccounts()).filter(account=>account.id).map(account=>[account.id as string,`${account.name} (${maskEmail(account.email)})`]));}

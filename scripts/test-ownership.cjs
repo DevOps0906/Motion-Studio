@@ -243,6 +243,29 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
  const before=audit.length;
  await call('/api/projects/[id]','GET','/x',A,{},{id:projA.id});await call('/api/projects','GET','/api/projects',A);
  assert.equal(fs.readFileSync(auditFile,'utf8').trim().split('\n').length,before,'own items are never audited');
+ // task-009: operator all-accounts inbox. Non-operator ?owner=all stays own-only (table above); operator gets foreign rows, one audit line, masked owner label.
+ {
+  const lines=()=>fs.readFileSync(auditFile,'utf8').trim().split(String.fromCharCode(10)).length,n0=lines();
+  const rows=await (await call('/api/inquiries','GET','/api/inquiries?owner=all',OP)).json();
+  const row=rows.find(r=>r.id===inqA.id);assert.ok(row,'operator all view includes foreign inquiry');
+  assert.equal(lines(),n0+1,'one audit line for the foreign inquiry');
+  assert.ok(typeof row.ownerLabel==='string'&&row.ownerLabel.includes('***@')&&!JSON.stringify(rows).includes('a@example.com'),'owner label is masked, never the raw email');
+  const mine=await (await call('/api/inquiries','GET','/api/inquiries',OP)).json();assert.deepEqual(mine,[]);assert.ok(mine.every(r=>r.ownerLabel===undefined));
+  assert.equal(JSON.stringify(await (await call('/api/inquiries','GET','/api/inquiries?owner=all',B)).json()).includes('ownerLabel'),false,'non-operator gets no owner label');
+  const page=fs.readFileSync(path.join(ROOT,'app/websites/inquiries/page.tsx'),'utf8'),ui=fs.readFileSync(path.join(ROOT,'components/WebsiteInquiriesInbox.tsx'),'utf8');
+  assert.ok(page.includes('operator={isAdminEmail(account.email)}'),'operator decided on the server');
+  assert.ok(ui.includes('{operator&&<div className="inquiry-scope"')&&ui.includes("next==='all'&&operator?"),'toggle and owner=all only for operators');
+  console.log('PASS: operator all-accounts inbox — foreign rows with audit line, masked owner label, non-operators unchanged, toggle gated by server-side operator prop');
+ }
+ {
+  const NL=String.fromCharCode(10),own=load('lib/server/owner.ts');
+  assert.equal(own.maskEmail('a@x.com'),'***@x.com');assert.equal(own.maskEmail('ab@x.com'),'***@x.com');assert.equal(own.maskEmail('sky@x.com'),'sk***@x.com');
+  const idb=crypto.randomUUID(),dbq=new DatabaseSync(path.join(data,'inquiries.sqlite'));
+  dbq.prepare('INSERT INTO inquiries(id,submission_key,website_id,website_title,created_at,name,contact,message,consent_version,read_at,notify,owner_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,NULL)').run(idb,'k-legacy','w','t',new Date().toISOString(),'n','c','m','v',null,'{}');dbq.close();
+  assert.equal((await call('/api/inquiries/[id]','PATCH','/x',B,{},{id:idb})).status,404,'non-operator cannot read ownerless inquiry');
+  assert.equal((await call('/api/inquiries/[id]','PATCH','/x',OP,{},{id:idb})).status,200,'operator reads ownerless inquiry');
+  assert.equal((await call('/api/inquiries/[id]','PATCH','/x',OP,{},{id:inqA.id})).status,404,'operator cannot read another account inquiry');
+ }
  // Items without an owner (before migrate:owner) are operator only.
  fs.writeFileSync(path.join(data,'projects','legacy-1.json'),JSON.stringify({...projA,id:'legacy-1',ownerId:undefined}));
  assert.equal((await call('/api/projects/[id]','GET','/x',B,{},{id:'legacy-1'})).status,404);assert.equal((await call('/api/projects/[id]','GET','/x',A,{},{id:'legacy-1'})).status,404);

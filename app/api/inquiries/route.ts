@@ -1,7 +1,7 @@
 import {after} from 'next/server';
 import {INQUIRY_LIMITS} from '../../../lib/inquiry';
 import {deliverInquiryAlert,listInquiries,submitInquiry} from '../../../lib/server/inquiries';
-import {authorize,visible} from '../../../lib/server/owner';
+import {authorize,ownerLabels,visible} from '../../../lib/server/owner';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'no-store'};
@@ -36,5 +36,5 @@ export async function POST(request:Request){
 // Own websites' inquiries; the operator may add ?owner=all (foreign rows are written to the audit log).
 export async function GET(request:Request){
  const actor=await authorize(request);if(actor instanceof Response)return actor;
- try{const all=actor.operator&&new URL(request.url).searchParams.get('owner')==='all';return Response.json(await visible(actor,request,'inquiry',listInquiries(Date.now(),all?'all':actor.id)),{headers});}catch{return Response.json({error:'문의 내역을 불러오지 못했습니다.'},{status:500,headers});}
+ try{const all=actor.operator&&new URL(request.url).searchParams.get('owner')==='all',rows=await visible(actor,request,'inquiry',listInquiries(Date.now(),all?'all':actor.id));if(!all)return Response.json(rows,{headers});const labels=await ownerLabels();return Response.json(rows.map(row=>({...row,ownerLabel:row.ownerId?labels.get(row.ownerId)??'알 수 없는 계정':'소유 계정 없음'})),{headers});}catch{return Response.json({error:'문의 내역을 불러오지 못했습니다.'},{status:500,headers});}
 }

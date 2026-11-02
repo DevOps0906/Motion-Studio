@@ -1,7 +1,7 @@
 # NOW — 재진입 스냅샷 (30줄 이내, 매 작업 끝에 덮어쓴다)
 
 - 갱신: 2026-11-02
-- 현재 작업: task-008 코드 완료(커밋), 실제 데이터 이전 대기(사용자 확인 필요)
+- 현재 작업: task-008 실제 데이터 이전 보류(사용자 2026-11-02) — 이 폴더에 .local-data·backups 없음(운영 데이터 위치 사용자 확인 필요)
 - 마지막으로 한 일: W4 병렬 — task-006(필수 입력·주소 제안)·task-007(갤러리·페이지별 후기/FAQ)·task-008(계정별 자료 분리) 구현, 모두 reviewer code·security ACCEPT 후 🟡 반영
 - 다음 한 걸음: README 배포 순서대로 ① 백업 → ② 서버 정지(docker compose down) → ③ 코드 교체 → ④ migrate:owner --dry-run --owner skydy96@gmail.com → ⑤ migrate:owner → ⑥ 기동 → 재로그인·자료 보임·공개 미리보기 이미지 확인
 - 경고: 새 코드로 migrate 전에 기동하면 id 없는 계정은 전부 401(노출은 없음)

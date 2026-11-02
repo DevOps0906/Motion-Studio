@@ -43,9 +43,9 @@ const settle=(notify:Record<string,string>,createdAt:string,now:number)=>Object.
 export type InquiryOwner=string;
 export function listInquiries(now=Date.now(),owner:InquiryOwner){return (owner==='all'?db(now).prepare('SELECT id,website_id,website_title,created_at,name,contact,message,read_at,notify,owner_id FROM inquiries ORDER BY created_at DESC LIMIT 100').all():db(now).prepare('SELECT id,website_id,website_title,created_at,name,contact,message,read_at,notify,owner_id FROM inquiries WHERE owner_id=? ORDER BY created_at DESC LIMIT 100').all(owner)).map(row=>({id:String(row.id),ownerId:row.owner_id?String(row.owner_id):undefined,websiteId:String(row.website_id),websiteTitle:String(row.website_title),createdAt:String(row.created_at),name:String(row.name),contact:String(row.contact),message:String(row.message),readAt:row.read_at?String(row.read_at):null,notify:settle(JSON.parse(String(row.notify)),String(row.created_at),now)}));}
 // Another account's (or unowned) inquiry changes nothing and reports false, same as a missing id.
-export function markInquiryRead(id:string,owner:InquiryOwner){
+export function markInquiryRead(id:string,owner:InquiryOwner,includeOwnerless=false){
  if(!/^[a-f0-9-]{36}$/i.test(id))return false;
  const now=new Date().toISOString();
- return Number((owner==='all'?db().prepare('UPDATE inquiries SET read_at=COALESCE(read_at,?) WHERE id=?').run(now,id):db().prepare('UPDATE inquiries SET read_at=COALESCE(read_at,?) WHERE id=? AND owner_id=?').run(now,id,owner)).changes)>0;
+ return Number((owner==='all'?db().prepare('UPDATE inquiries SET read_at=COALESCE(read_at,?) WHERE id=?').run(now,id):db().prepare('UPDATE inquiries SET read_at=COALESCE(read_at,?) WHERE id=? AND (owner_id=?'+(includeOwnerless?' OR owner_id IS NULL':'')+')').run(now,id,owner)).changes)>0;
 }
 export function unreadInquiryCount(owner:InquiryOwner){return Number((owner==='all'?db().prepare('SELECT COUNT(*) AS count FROM inquiries WHERE read_at IS NULL').get():db().prepare('SELECT COUNT(*) AS count FROM inquiries WHERE read_at IS NULL AND owner_id=?').get(owner))?.count||0);}
