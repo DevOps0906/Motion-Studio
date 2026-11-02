@@ -10,7 +10,7 @@ export type CadView = {id:string;schemaVersion:1;name:string;camera:{position:[n
 export type CadNodeEdit = {position?:[number,number,number];rotation?:[number,number,number];scale?:[number,number,number];hidden?:boolean;color?:string;roughness?:number};
 export type CadEdits = {schemaVersion:1;revision:number;overrides:Record<string,CadNodeEdit>};
 // Result of the last GLB validation, valid while the .glb mtime and size stay the same.
-export type CadValidation = {at:string;mtimeMs:number;size:number;nodeCount:number;matrixNodes?:number[]};
+export type CadValidation = {at:string;mtimeMs:number;size:number;nodeCount:number;matrixNodes?:number[];skinNodes?:number[]};
 export type CadModelAsset = {ownerId?:string;id:string;name:string;sizeBytes:number;createdAt:string;gltfVersion:string;sceneCount:number;nodeCount:number;meshCount:number;materialCount:number;storeyCount:number;views?:CadView[];invalid?:string;validated?:CadValidation};
 export const DEFAULT_PROJECT:Project = {id:'preview',schemaVersion:1,title:'나의 첫 인트로',createdAt:'',updatedAt:'',durationSeconds:15,fps:30,resolution:{width:1920,height:1080},photos:[],template:'mosaic',background:'#080c17',tileScale:1,gap:1,radius:.08,brand:{title:'IDEAS INTO MOTION',subtitle:'PHOTO WALL STUDIO',color:'#ffffff',startSeconds:11.8,endSeconds:15},audio:{volume:.5,startSeconds:0,trimStartSeconds:0,fadeInSeconds:.5,fadeOutSeconds:1}};
 export const templates = motionPresets;

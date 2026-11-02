@@ -10,12 +10,9 @@
 // - Same input, same result: every call starts again from the TRS captured at tag time, so repeated calls never accumulate.
 import * as THREE from 'three';
 import type { CadEdits, CadNodeEdit } from './model';
+import { emptyEdits } from './cad-edit-limits';
 
-export const EDIT_LIMITS = {
-  maxOverrides: 500, maxBodyBytes: 64 * 1024, position: 1000, rotation: 360, scaleMin: 0.01, scaleMax: 100,
-} as const;
-
-export const emptyEdits = (): CadEdits => ({ schemaVersion: 1, revision: 0, overrides: {} });
+export { EDIT_LIMITS, emptyEdits } from './cad-edit-limits';
 
 export type CadLayout = { visibleFloors: boolean[]; exploded: boolean };
 type Base = { p: [number, number, number]; q: [number, number, number, number]; s: [number, number, number] };
@@ -26,12 +23,17 @@ type GltfLike = {
 
 // Call once on the object returned by GLTFLoader/useGLTF, BEFORE cloning. Safe to call again.
 export function tagNodeIndices(gltf: GltfLike): void {
-  const nodes = (gltf.parser.json as { nodes?: Array<{ matrix?: unknown } | null> }).nodes ?? [];
+  const json = gltf.parser.json as { nodes?: Array<{ matrix?: unknown; skin?: unknown } | null>; skins?: Array<{ joints?: unknown } | null> };
+  const nodes = json.nodes ?? [];
+  const joints = new Set<number>();
+  for (const skin of json.skins ?? []) if (Array.isArray(skin?.joints)) for (const joint of skin.joints) if (typeof joint === 'number') joints.add(joint);
   gltf.scene.traverse((object) => {
     const mapping = gltf.parser.associations.get(object) as { nodes?: unknown } | undefined;
     if (typeof mapping?.nodes !== 'number') return;
     object.userData.nodeIndex = mapping.nodes;
     if (nodes[mapping.nodes]?.matrix !== undefined) object.userData.cadMatrix = true;
+    // Skinned meshes and bones are driven by the skeleton; cloning the scene does not carry such edits through, so they are locked.
+    if (nodes[mapping.nodes]?.skin !== undefined || joints.has(mapping.nodes)) object.userData.cadSkin = true;
     if (!object.userData.cadBase) {
       const base: Base = { p: object.position.toArray(), q: object.quaternion.toArray() as Base['q'], s: object.scale.toArray() };
       object.userData.cadBase = base;
@@ -46,8 +48,10 @@ const DEG = Math.PI / 180;
 
 function nodeMeshes(object: THREE.Object3D): THREE.Mesh[] {
   const found: THREE.Mesh[] = [];
-  if (object instanceof THREE.Mesh) found.push(object);
-  for (const child of object.children) if (child instanceof THREE.Mesh && typeof child.userData.nodeIndex !== 'number') found.push(child);
+  // isMesh (not instanceof): a second copy of three (loader vs app bundle) must not make edits silently skip materials.
+  const isMesh = (candidate: THREE.Object3D): candidate is THREE.Mesh => (candidate as THREE.Mesh).isMesh === true;
+  if (isMesh(object)) found.push(object);
+  for (const child of object.children) if (isMesh(child) && typeof child.userData.nodeIndex !== 'number') found.push(child);
   return found;
 }
 
@@ -71,7 +75,25 @@ function applyMaterial(object: THREE.Object3D, edit: CadNodeEdit | undefined) {
 }
 
 const editOf = (object: THREE.Object3D, edits: CadEdits): CadNodeEdit | undefined =>
-  typeof object.userData.nodeIndex === 'number' && !object.userData.cadMatrix ? edits.overrides[String(object.userData.nodeIndex)] : undefined;
+  typeof object.userData.nodeIndex === 'number' && !object.userData.cadMatrix && !object.userData.cadSkin ? edits.overrides[String(object.userData.nodeIndex)] : undefined;
+
+// A node can be picked/shown only when it and all its ancestors are visible (raycasts also hit invisible objects).
+export function isEffectivelyVisible(object: THREE.Object3D | null): boolean {
+  for (let current = object; current; current = current.parent) if (!current.visible) return false;
+  return true;
+}
+
+// Frees the edited material clones of a scene that is being thrown away (the source scene's materials are never touched).
+export function disposeEditedScene(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    clones.get(mesh)?.forEach((material) => material.dispose());
+    clones.delete(mesh);
+    const original = originals.get(mesh);
+    if (original) mesh.material = original;
+  });
+}
 
 // Mutates `root` (a clone of a tagged scene). With `layout`, floor visibility and explode offsets are added after the edits.
 export function applyEdits(root: THREE.Object3D, edits: CadEdits, layout?: CadLayout): void {

@@ -1,14 +1,21 @@
 import { apiError } from '../../../../../lib/server/store';
 import { HttpError, getCadEdits, limitBody, saveCadEdits } from '../../../../../lib/server/cad-models';
-import { authorize } from '../../../../../lib/server/owner';
-import { EDIT_LIMITS } from '../../../../../lib/cad-edits';
+import { NotFoundError, authorize } from '../../../../../lib/server/owner';
+import { EDIT_LIMITS } from '../../../../../lib/cad-edit-limits';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Only HttpError messages (validation, conflict, busy) reach the client; any other failure (fs errors with paths) is a fixed 500.
+function fail(error: unknown) {
+  if (error instanceof HttpError) return Response.json({ error: error.message, ...error.extra }, { status: error.status });
+  if (error instanceof NotFoundError || (error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return apiError(error);
+  return Response.json({ error: '편집을 처리하지 못했습니다.' }, { status: 500 });
+}
+
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try { const actor = await authorize(request); if (actor instanceof Response) return actor; return Response.json(await getCadEdits((await context.params).id, actor)); }
-  catch (error) { return apiError(error, 404); }
+  catch (error) { return fail(error); }
 }
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -21,8 +28,5 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (Buffer.byteLength(text) > EDIT_LIMITS.maxBodyBytes) return Response.json({ error: '요청이 너무 큽니다.' }, { status: 413 });
     let body: unknown; try { body = JSON.parse(text); } catch { body = undefined; }
     return Response.json(await saveCadEdits(id, body, actor));
-  } catch (error) {
-    if (error instanceof HttpError) return Response.json({ error: error.message, ...error.extra }, { status: error.status });
-    return apiError(error);
-  }
+  } catch (error) { return fail(error); }
 }

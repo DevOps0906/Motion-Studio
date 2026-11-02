@@ -45,15 +45,16 @@ function glb(gltf={},bin){
  if(paddedBin){const chunk=Buffer.alloc(8);chunk.writeUInt32LE(paddedBin.length,0);chunk.writeUInt32LE(0x004e4942,4);parts.push(chunk,paddedBin);}
  return Buffer.concat(parts);
 }
-// Four nodes: 0 root(translation) > [1 "multi" (mesh with TWO primitives, storey 2 at 3.6 m), 2 "single" (mesh 1)]; 3 is defined by `matrix` (also mesh 1, so mesh 1 is shared).
+// Five nodes (4 is a joint of a skin = a bone): 0 root(translation) > [1 "multi" (mesh with TWO primitives, storey 2 at 3.6 m), 2 "single" (mesh 1)]; 3 is defined by `matrix` (also mesh 1, so mesh 1 is shared).
 const triangle=Buffer.from(new Float32Array([0,0,0,1,0,0,0,1,0]).buffer);
 const sample=()=>glb({
- scenes:[{nodes:[0,3]}],
+ scenes:[{nodes:[0,3,4]}],skins:[{joints:[4]}],
  nodes:[
   {name:'root',translation:[1,2,3],children:[1,2]},
   {name:'multi',mesh:0,extras:{storeyId:'2',elevationM:3.6}},
   {name:'single',mesh:1,translation:[5,0,0]},
   {name:'matrixNode',mesh:1,matrix:[1,0,0,0,0,1,0,0,0,0,1,0,7,0,0,1]},
+  {name:'bone'},
  ],
  meshes:[{primitives:[{attributes:{POSITION:0},material:0},{attributes:{POSITION:0},material:1}]},{primitives:[{attributes:{POSITION:0},material:0}]}],
  materials:[{pbrMetallicRoughness:{baseColorFactor:[1,1,1,1],roughnessFactor:0.9}},{pbrMetallicRoughness:{baseColorFactor:[0,1,0,1]}}],
@@ -75,15 +76,15 @@ const sample=()=>glb({
  const indexed=root=>{const map=new Map();root.traverse(o=>{if(typeof o.userData.nodeIndex==='number')map.set(o.userData.nodeIndex,o);});return map;};
  // original node index <-> object, on the loaded scene and on every clone
  const original=indexed(gltf.scene);
- assert.deepEqual([...original.keys()].sort(),[0,1,2,3]);
+ assert.deepEqual([...original.keys()].sort(),[0,1,2,3,4]);
  assert.equal(original.get(0).name,'root');assert.equal(original.get(2).name,'single');
  const multi=original.get(1);assert.equal(multi.type,'Group','a mesh with several primitives is one node (a Group)');
  assert.equal(multi.children.length,2);assert.ok(multi.children.every(child=>child.isMesh&&child.userData.nodeIndex===undefined),'primitives carry no node index; the parent node does');
- assert.equal(original.get(3).userData.cadMatrix,true);assert.equal(original.get(2).userData.cadMatrix,undefined);
+ assert.equal(original.get(3).userData.cadMatrix,true);assert.equal(original.get(4).userData.cadSkin,true,'a joint is locked');assert.equal(original.get(3).userData.cadSkin,undefined);assert.equal(original.get(2).userData.cadMatrix,undefined);
  const cloned=indexed(gltf.scene.clone(true));
  assert.deepEqual([...cloned.entries()].map(([i,o])=>[i,o.name]).sort(),[...original.entries()].map(([i,o])=>[i,o.name]).sort(),'clone keeps every index');
  assert.notEqual(cloned.get(1),original.get(1));assert.equal(cloned.get(1).children.length,2);
- lib.tagNodeIndices(gltf);assert.equal(indexed(gltf.scene).size,4,'tagging twice is harmless');
+ lib.tagNodeIndices(gltf);assert.equal(indexed(gltf.scene).size,5,'tagging twice is harmless');
  console.log('PASS: original glTF node index is written to userData.nodeIndex and survives clone, including a mesh with two primitives (index on the parent Group) and a matrix node');
 
  const layout={visibleFloors:[true,true],exploded:false};
@@ -92,6 +93,7 @@ const sample=()=>glb({
   '1':{position:[0,10,0],color:'#ff0000',roughness:0.2},
   '2':{rotation:[0,90,0],scale:[2,2,2],position:[1,0,0]},
   '3':{position:[9,9,9],hidden:true,color:'#00ff00'},
+  '4':{position:[1,1,1],hidden:true},
  }};
  const snapshot=root=>{const rows=[];root.traverse(o=>{rows.push([o.name,o.type,o.position.toArray(),o.quaternion.toArray(),o.scale.toArray(),o.visible,o.isMesh?(Array.isArray(o.material)?o.material:[o.material]).map(m=>[m.color.getHexString(),m.roughness]):null]);});return JSON.stringify(rows);};
  const baseline=lib.buildEditedScene(gltf.scene,none,layout);
@@ -111,6 +113,7 @@ const sample=()=>glb({
  assert.equal(original.get(1).children[0].material.color.getHexString(),'ffffff','source scene untouched');
  assert.equal(A.get(2).material.color.getHexString(),'ffffff','node 2 keeps its material (the mesh is shared with the matrix node)');
  // matrix node: every edit is ignored
+ assert.deepEqual(A.get(4).position.toArray(),Z.get(4).position.toArray());assert.equal(A.get(4).visible,true,'bone/skin nodes ignore edits');
  assert.deepEqual(A.get(3).position.toArray(),Z.get(3).position.toArray());assert.equal(A.get(3).visible,true);assert.equal(A.get(3).material.color.getHexString(),'ffffff');
  console.log('PASS: edits apply on top of the original local TRS, reach both primitives of a multi-primitive node, leave the source scene and matrix nodes alone, and are deterministic');
 
@@ -135,6 +138,33 @@ const sample=()=>glb({
  assert.equal(indexed(lib.buildEditedScene(gltf.scene,hide,floorOff).scene).get(1).visible,false,'hidden by edit stays hidden when its floor is shown again elsewhere');
  console.log('PASS: floor explode is added after the edits (3.6 + 10 + 0.85), repeated/toggled application does not accumulate, empty edits restore the original, hidden and floor visibility combine');
 
+
+ // isMesh instead of instanceof (two copies of three must not skip materials); dispose; picking helper; pure UI helpers
+ assert.ok(!/instanceof\s+THREE\.Mesh/.test(fs.readFileSync(path.join(ROOT,'lib','cad-edits.ts'),'utf8')));
+ const fresh=lib.buildEditedScene(gltf.scene,edits,layout),F=indexed(fresh.scene);
+ const editedMaterials=F.get(1).children.map(child=>child.material),sourceMaterial=original.get(1).children[0].material;
+ const disposed=new Set();for(const material of [...editedMaterials,sourceMaterial])material.addEventListener('dispose',()=>disposed.add(material));
+ lib.disposeEditedScene(fresh.scene);
+ assert.ok(editedMaterials.every(material=>disposed.has(material)),'edited clones are disposed');assert.ok(!disposed.has(sourceMaterial),'the source material is not');
+ assert.equal(F.get(1).children[0].material,sourceMaterial,'disposed scene points back at the originals');
+ const rebuilt=lib.buildEditedScene(gltf.scene,edits,layout),R=indexed(rebuilt.scene);
+ const firstClone=R.get(1).children[0].material;let freed=false;firstClone.addEventListener('dispose',()=>{freed=true;});
+ lib.applyEdits(rebuilt.scene,{...edits,overrides:{...edits.overrides,'1':{color:'#0000ff'}}},layout);
+ assert.ok(freed,'re-applying frees the previous clone');assert.equal(R.get(1).children[0].material.color.getHexString(),'0000ff');
+ const hiddenScene=lib.buildEditedScene(gltf.scene,{schemaVersion:1,revision:0,overrides:{'1':{hidden:true}}},layout),H=indexed(hiddenScene.scene);
+ assert.equal(lib.isEffectivelyVisible(H.get(1).children[0]),false,'a primitive under a hidden node is not pickable');
+ assert.equal(lib.isEffectivelyVisible(H.get(2)),true);assert.equal(lib.isEffectivelyVisible(null),true);
+ const limits=load('lib/cad-edit-limits.ts');
+ assert.equal(limits.clampEditValue('position',5000),1000);assert.equal(limits.clampEditValue('position',-5000),-1000);assert.equal(limits.clampEditValue('rotation',400),360);
+ assert.equal(limits.clampEditValue('scale',0),0.01);assert.equal(limits.clampEditValue('scale',500),100);assert.equal(limits.clampEditValue('scale',2),2);
+ let stack=[];for(let i=0;i<60;i++)stack=limits.pushUndo(stack,i);
+ assert.equal(stack.length,50);assert.equal(stack[0],10);assert.equal(stack[49],59);
+ assert.deepEqual(limits.editedNodes({'10':{hidden:true},'2':{color:'#ffffff'}}),[{index:2,hidden:false},{index:10,hidden:true}]);
+ assert.equal(limits.hasUnsavedEdits({'1':{hidden:true}},{'1':{hidden:true}}),false);assert.equal(limits.hasUnsavedEdits({},{'1':{hidden:true}}),true);
+ const importers=['app/api/models/[id]/edits/route.ts','lib/server/cad-models.ts'].map(file=>fs.readFileSync(path.join(ROOT,file),'utf8'));
+ assert.ok(importers.every(text=>!/from '[./]*\/(lib\/)?cad-edits'/.test(text)),'server code imports the limits file, not the three-dependent module');
+ console.log('PASS: isMesh check, edited clones disposed on rebuild/dispose (source material untouched), hidden nodes are not pickable, clamp/undo(50)/edited list/unsaved helpers, server code does not import cad-edits');
+
  // ================= part 2: API
  const {load: loadServer}=world({cwd,env:{REQUIREMENTS_ADMIN_EMAILS:'op@example.com'},three:THREE});
  const accounts=loadServer('lib/account-store.ts');
@@ -153,7 +183,7 @@ const sample=()=>glb({
  let res;
 
  res=await upload(A1,sample());assert.equal(res.status,201);const M=await res.json();
- assert.equal(M.validated.nodeCount,4);assert.deepEqual(M.validated.matrixNodes,[3]);
+ assert.equal(M.validated.nodeCount,5);assert.deepEqual(M.validated.matrixNodes,[3]);assert.deepEqual(M.validated.skinNodes,[4]);
  res=await getEdits(A1,M.id);assert.equal(res.status,200);assert.deepEqual(await res.json(),{schemaVersion:1,revision:0,overrides:{}});
  const valid={'1':{position:[0,10,0],rotation:[0,90,-360],scale:[0.01,1,100],hidden:true,color:'#FF8800',roughness:0},'2':{roughness:1}};
  res=await putEdits(A1,M.id,doc(valid));assert.equal(res.status,200);
@@ -177,7 +207,7 @@ const sample=()=>glb({
  const bad={
   'schemaVersion 2':doc({}, 3,{schemaVersion:2}),'no schemaVersion':(({schemaVersion,...rest})=>rest)(doc({},3)),'unknown top field':doc({},3,{extra:1}),'client id':doc({},3,{id:'x'}),
   'revision negative':doc({},-1),'revision fraction':doc({},1.5),'revision string':doc({},'3'),'overrides array':doc([],3),'overrides null':doc(null,3),
-  'node out of range':doc({'4':{hidden:true}},3),'node negative':doc({'-1':{hidden:true}},3),'node leading zero':doc({'01':{hidden:true}},3),'node name':doc({abc:{hidden:true}},3),'node float':doc({'1.5':{hidden:true}},3),
+  'node out of range':doc({'5':{hidden:true}},3),'skin/bone node':doc({'4':{hidden:true}},3),'node negative':doc({'-1':{hidden:true}},3),'node leading zero':doc({'01':{hidden:true}},3),'node name':doc({abc:{hidden:true}},3),'node float':doc({'1.5':{hidden:true}},3),
   'matrix node':doc({'3':{hidden:true}},3),'empty edit':doc({'1':{}},3),'edit not object':doc({'1':true},3),'edit array':doc({'1':[]},3),
   'metalness':doc({'1':{metalness:0.5}},3),'unknown edit field':doc({'1':{visible:false}},3),
   'position over':doc({'1':{position:[1001,0,0]}},3),'position under':doc({'1':{position:[0,-1001,0]}},3),'position length':doc({'1':{position:[0,0]}},3),'position string':doc({'1':{position:[0,'1',0]}},3),'position null':doc({'1':{position:[0,null,0]}},3),
@@ -232,6 +262,10 @@ const sample=()=>glb({
  // a record from before this change has no stamp: validated on first use
  const record=readModel(M.id);delete record.validated;fs.writeFileSync(path.join(modelDir,M.id+'.json'),JSON.stringify(record));
  res=await putEdits(A1,M.id,doc({'2':{hidden:true}},await rev()));assert.equal(res.status,200);assert.equal(validations,2);assert.ok(readModel(M.id).validated);
+ // a stamp without skin information (from before skinNodes) is not trusted either
+ const stale=readModel(M.id);delete stale.validated.skinNodes;fs.writeFileSync(path.join(modelDir,M.id+'.json'),JSON.stringify(stale));
+ res=await putEdits(A1,M.id,doc({'2':{hidden:true}},await rev()));assert.equal(res.status,200);assert.equal(validations,3);assert.deepEqual(readModel(M.id).validated.skinNodes,[4]);
+ validations=2;
  // a re-check shares the upload slots
  fs.utimesSync(glbFile,stat.atime,new Date(stat.mtimeMs-9000));
  const held=[models.acquireUploadSlot(),models.acquireUploadSlot()];
@@ -243,6 +277,26 @@ const sample=()=>glb({
  res=await putEdits(A1,M.id,doc({'2':{hidden:true}},revision));assert.equal(res.status,400);assert.ok(readModel(M.id).invalid);
  res=await putEdits(A1,M.id,doc({},revision));assert.equal(res.status,400);assert.equal(await rev(),revision,'nothing saved for an invalid model');
  console.log('PASS: validation cache — same mtime/size skips validateGlb, changed mtime or missing stamp re-validates once, re-check uses upload slots (429 when full), failure marks the model invalid');
+
+ // a damaged edit document is never silently reset: fixed-message 500, file untouched
+ res=await upload(A1,sample());const C=await res.json();
+ assert.equal((await putEdits(A1,C.id,doc({'1':{hidden:true}}))).status,200);
+ for(const garbage of ['{broken','[]','{"schemaVersion":1,"revision":"x","overrides":{}}','{"schemaVersion":1,"revision":1}']){
+  fs.writeFileSync(editsFile(C.id),garbage);
+  for(const r of [await getEdits(A1,C.id),await putEdits(A1,C.id,doc({'1':{hidden:true}},1))]){
+   assert.equal(r.status,500,garbage);const body=await r.json();assert.deepEqual(body,{error:'저장된 편집 문서를 읽을 수 없습니다.'});
+  }
+  assert.equal(fs.readFileSync(editsFile(C.id),'utf8'),garbage,'damaged file left as it is');
+ }
+ fs.rmSync(editsFile(C.id));assert.equal((await getEdits(A1,C.id)).status,200,'a missing document (ENOENT) is simply empty');
+ // any other failure (an fs error that carries a path) is a fixed 500 and the message never reaches the client
+ const realWrite=fs.promises.writeFile;
+ fs.promises.writeFile=async(file)=>{throw Object.assign(new Error('EACCES: permission denied, open '+file),{code:'EACCES'});};
+ res=await putEdits(A1,C.id,doc({'1':{hidden:true}}));fs.promises.writeFile=realWrite;
+ assert.equal(res.status,500);const failure=await res.text();assert.deepEqual(JSON.parse(failure),{error:'편집을 처리하지 못했습니다.'});assert.ok(!failure.includes(cwd)&&!failure.includes('EACCES'));
+ // validation messages are still shown (HttpError 400)
+ res=await putEdits(A1,C.id,doc({'1':{hidden:'x'}}));assert.equal(res.status,400);assert.match((await res.json()).error,/숨김/);
+ console.log('PASS: damaged edit document -> fixed 500 for GET and PUT without touching the file, missing -> empty, other fs errors -> fixed 500 without paths, validation errors keep their message');
 
  // delete cascade and a vanished .glb
  res=await upload(A1,sample());const D=await res.json();
