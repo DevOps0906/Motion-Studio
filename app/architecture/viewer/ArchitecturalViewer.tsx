@@ -60,7 +60,7 @@ function Building({ visibleFloors, exploded, curtainWall, panelSpacing, material
 }
 
 function UploadedBuilding({ url, visibleFloors, exploded, onDimensions }: { url: string; visibleFloors: boolean[]; exploded: boolean; onDimensions: (dimensions: { width: number; depth: number; height: number }) => void }) {
-  const { scene } = useGLTF(url);
+  const { scene } = useGLTF(url, false, false); // decoders off: draco/meshopt would load from an external CDN (task-010 section 9)
   const model = useMemo(() => {
     const clone = scene.clone(true);
     const box = new THREE.Box3().setFromObject(clone);

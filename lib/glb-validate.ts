@@ -14,7 +14,7 @@ export type GlbSummary = {
 
 type Gltf = {
   asset?: { version?: unknown }; scenes?: unknown; nodes?: unknown; meshes?: unknown; materials?: unknown;
-  accessors?: unknown; buffers?: unknown; bufferViews?: unknown; images?: unknown; extensionsRequired?: unknown;
+  accessors?: unknown; buffers?: unknown; bufferViews?: unknown; images?: unknown; extensionsRequired?: unknown; extensionsUsed?: unknown;
 };
 type Rec = Record<string, unknown>;
 const isRecord = (value: unknown): value is Rec => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -79,6 +79,14 @@ export function validateGlb(bytes: Buffer): GlbSummary {
     if (!Array.isArray(gltf.extensionsRequired)) throw new Error('GLB의 extensionsRequired 형식이 올바르지 않습니다.');
     for (const name of gltf.extensionsRequired) {
       if (typeof name !== 'string' || !ALLOWED_EXTENSION.test(name)) throw new Error(`지원하지 않는 glTF 확장입니다: ${String(name).slice(0, 60)}`);
+    }
+  }
+
+  // task-010 B: the viewer and the server render never load decoders (they would come from an external CDN), so draco/meshopt are refused even when only listed as used.
+  if (gltf.extensionsUsed !== undefined) {
+    if (!Array.isArray(gltf.extensionsUsed)) throw new Error('GLB의 extensionsUsed 형식이 올바르지 않습니다.');
+    for (const name of gltf.extensionsUsed) {
+      if (name === 'KHR_draco_mesh_compression' || name === 'EXT_meshopt_compression') throw new Error(`압축 확장(${name})은 지원하지 않습니다. 압축 없이 내보낸 GLB를 올려 주세요.`);
     }
   }
 

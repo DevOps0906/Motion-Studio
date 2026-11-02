@@ -9,7 +9,7 @@
     "video:studio": "remotion studio remotion/index.ts",
     "video:render": "remotion render remotion/index.ts PhotoWallIntro out/intro.mp4",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/test-core.cjs && node scripts/test-websites.cjs && node scripts/test-sample-media.cjs && node scripts/test-studio-expansion.cjs && node scripts/test-blog-skins.cjs && node scripts/test-capcut-launch.cjs && node scripts/test-website-requirements.cjs && node scripts/test-production-settings.cjs && node scripts/test-content-templates.cjs && node scripts/test-blog-generation.cjs && node scripts/test-inquiries.cjs && node scripts/test-website-draft.cjs && node scripts/test-operations.cjs && node scripts/test-ownership.cjs && node scripts/test-models.cjs && node scripts/test-transcripts.cjs",
+    "test": "node scripts/test-core.cjs && node scripts/test-websites.cjs && node scripts/test-sample-media.cjs && node scripts/test-studio-expansion.cjs && node scripts/test-blog-skins.cjs && node scripts/test-capcut-launch.cjs && node scripts/test-website-requirements.cjs && node scripts/test-production-settings.cjs && node scripts/test-content-templates.cjs && node scripts/test-blog-generation.cjs && node scripts/test-inquiries.cjs && node scripts/test-website-draft.cjs && node scripts/test-operations.cjs && node scripts/test-ownership.cjs && node scripts/test-models.cjs && node scripts/test-walkthrough.cjs && node scripts/test-transcripts.cjs",
     "account:create": "node scripts/account-create.cjs",
     "account:delete": "node scripts/account-delete.cjs",
     "migrate:owner": "node scripts/migrate-owner.cjs",

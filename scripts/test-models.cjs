@@ -84,6 +84,8 @@ const run=(args,{cwd,url})=>new Promise(resolve=>{
   'data image uri':glb({images:[{uri:'data:image/png;base64,AAAA'}]}),
   'draco required':glb({extensionsRequired:['KHR_draco_mesh_compression']}),
   'meshopt required':glb({extensionsRequired:['EXT_meshopt_compression']}),
+  'draco used (not required)':glb({extensionsUsed:['KHR_draco_mesh_compression']}),
+  'meshopt used (not required)':glb({extensionsUsed:['EXT_meshopt_compression']}),
   'ktx2 required':glb({extensionsRequired:['KHR_texture_basisu']}),
   'texture over 2048px':withImage(4096),
   'too many textures':glb({images:Array.from({length:65},()=>({bufferView:0}))},png(8,8)),
