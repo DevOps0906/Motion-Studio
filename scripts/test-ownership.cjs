@@ -30,12 +30,19 @@ function world({cwd,env={}}){
  }
  return {load,later};
 }
-function request(method,pathname,{cookie,json,form,headers={}}={}){
+function request(method,pathname,{cookie,json,form,body,headers={}}={}){
  const init={method,headers:{host:'studio.test',...(cookie?{cookie}:{}),...headers}};
- if(json!==undefined){init.body=JSON.stringify(json);init.headers['content-type']='application/json';}
+ if(json!==undefined){init.body=JSON.stringify(json);init.headers['content-type']='application/json';init.headers['content-length']=String(Buffer.byteLength(init.body));}
+ if(body!==undefined)init.body=body;
  if(form)init.body=form;
  if(!['GET','HEAD','OPTIONS'].includes(method))init.headers.origin=BASE;
  return new Request(BASE+pathname,init);
+}
+// Real clients send Content-Length; a multipart form is serialized once to learn it.
+async function sized(options){
+ if(!options.form)return options;
+ const probe=new Response(options.form),bytes=Buffer.from(await probe.arrayBuffer());
+ return {...options,form:undefined,body:bytes,headers:{...(options.headers||{}),'content-type':probe.headers.get('content-type'),'content-length':String(bytes.length)}};
 }
 function walk(dir,match,out=[]){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,entry.name);if(entry.isDirectory())walk(full,match,out);else if(entry.name===match)out.push(full);}return out;}
 function glb(){
@@ -44,14 +51,18 @@ function glb(){
  const header=Buffer.alloc(20);header.write('glTF',0,'ascii');header.writeUInt32LE(2,4);header.writeUInt32LE(20+padded.length,8);header.writeUInt32LE(padded.length,12);header.writeUInt32LE(0x4e4f534a,16);
  return Buffer.concat([header,padded]);
 }
+// A port nobody listens on (fetch refuses port 9 as a bad port, which would look like an uncertain answer).
+let DEAD_URL='http://127.0.0.1:1';
+const pickDeadPort=()=>new Promise(resolve=>{const server=require('net').createServer();server.listen(0,'127.0.0.1',()=>{const {port}=server.address();server.close(()=>resolve(`http://127.0.0.1:${port}`));});});
 const run=(script,args,{cwd,env={},input=''})=>new Promise(resolve=>{
- const child=spawn(process.execPath,[path.join(ROOT,'scripts',script),...args],{cwd,env:{...process.env,MOTION_STUDIO_URL:'http://127.0.0.1:9',...env}});
+ const child=spawn(process.execPath,[path.join(ROOT,'scripts',script),...args],{cwd,env:{...process.env,MOTION_STUDIO_URL:DEAD_URL,...env}});
  let stdout='',stderr='';child.stdout.on('data',chunk=>stdout+=chunk);child.stderr.on('data',chunk=>stderr+=chunk);
  child.on('close',status=>resolve({status,stdout,stderr}));child.stdin.end(input);
 });
 const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs.readdirSync(current,{withFileTypes:true})){const full=path.join(current,entry.name);if(entry.isDirectory())visit(full);else out[path.relative(dir,full)]=crypto.createHash('sha1').update(fs.readFileSync(full)).digest('hex');}})(dir);return out;};
 
 (async()=>{
+ DEAD_URL=await pickDeadPort();
  const cwd=tmpDir('ms-own-'),data=path.join(cwd,'.local-data');
  const env={REQUIREMENTS_ADMIN_EMAILS:'op@example.com'};
  const {load,later}=world({cwd,env});
@@ -68,7 +79,7 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
  const modules=Object.fromEntries(routeFiles.map(file=>[routeKey(file),load(file)]));
  const call=async(key,method,pathname,who,options={},params)=>{
   const handler=modules[key][method];assert.equal(typeof handler,'function',method+' '+key);
-  return handler(request(method,pathname,{cookie:who?.cookie,...options}),{params:Promise.resolve(params||{})});
+  return handler(request(method,pathname,{cookie:who?.cookie,...await sized(options)}),{params:Promise.resolve(params||{})});
  };
  const png=color=>sharp({create:{width:64,height:64,channels:3,background:color}}).png().toBuffer();
  const upload=async(who,color,extra={})=>{const form=new FormData();form.append('file',new File([await png(color)],'photo.png',{type:'image/png'}));for(const [k,v] of Object.entries(extra))form.append(k,v);return call('/api/media','POST','/api/media',who,{form});};
@@ -84,6 +95,8 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
  res=await call('/api/projects','POST','/api/projects',A,{json:{title:'A 프로젝트',photos:[privMedia.id],ownerId:B.id}});assert.equal(res.status,201);const projA=await res.json();assert.equal(projA.ownerId,A.id);
  const modelForm=owner=>{const form=new FormData();form.append('file',new File([glb()],'a.glb'));if(owner)form.append('ownerId',owner);return form;};
  res=await call('/api/models','POST','/api/models',A,{form:modelForm(B.id)});assert.equal(res.status,201);const modelA=await res.json();assert.equal(modelA.ownerId,A.id);
+ const viewBody={schemaVersion:1,name:'정면',camera:{position:[23,16,22],target:[0,5.2,0]},floors:[],exploded:false,background:'#101722'};
+ res=await call('/api/models/[id]/views','POST','/x',A,{json:viewBody},{id:modelA.id});assert.equal(res.status,201);const viewA=await res.json();
  res=await call('/api/blog-skins','POST','/api/blog-skins',A,{json:{draft:DEFAULT_BLOG_SKIN}});assert.equal(res.status,201);const skinA=await res.json();assert.equal(skinA.ownerId,A.id);
  // A render job written directly (starting one would spawn the Remotion worker).
  const jobId=crypto.randomUUID(),assetToken=crypto.randomBytes(24).toString('hex'),now=new Date().toISOString();
@@ -108,6 +121,11 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
   'POST /api/media/[id]/crop':{url:`/api/media/${privMedia.id}/crop`,params:{id:privMedia.id},json:{left:0,top:0,width:50,height:50}},
   'GET /api/models/[id]':{url:`/api/models/${modelA.id}`,params:{id:modelA.id}},
   'DELETE /api/models/[id]':{url:`/api/models/${modelA.id}`,params:{id:modelA.id}},
+  'GET /api/models/[id]/views':{url:`/api/models/${modelA.id}/views`,params:{id:modelA.id}},
+  'POST /api/models/[id]/views':{url:`/api/models/${modelA.id}/views`,params:{id:modelA.id},json:viewBody},
+  'GET /api/models/[id]/views/[viewId]':{url:`/api/models/${modelA.id}/views/${viewA.id}`,params:{id:modelA.id,viewId:viewA.id}},
+  'PUT /api/models/[id]/views/[viewId]':{url:`/api/models/${modelA.id}/views/${viewA.id}`,params:{id:modelA.id,viewId:viewA.id},json:viewBody},
+  'DELETE /api/models/[id]/views/[viewId]':{url:`/api/models/${modelA.id}/views/${viewA.id}`,params:{id:modelA.id,viewId:viewA.id}},
   'GET /api/models/[id]/asset':{url:`/api/models/${modelA.id}/asset`,params:{id:modelA.id}},
   'GET /api/renders/[id]':{url:`/api/renders/${jobId}`,params:{id:jobId}},
   'POST /api/renders/[id]/cancel':{url:`/api/renders/${jobId}/cancel`,params:{id:jobId}},

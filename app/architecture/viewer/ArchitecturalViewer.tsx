@@ -1,10 +1,10 @@
 ﻿'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { Bounds, Grid, OrbitControls, Text, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import type { CadModelAsset } from '../../../lib/model';
+import type { CadModelAsset, CadView } from '../../../lib/model';
 
 type MaterialKey = 'limestone' | 'concrete' | 'sand';
 const materials: Record<MaterialKey, { label: string; color: string; emissive: string }> = {
@@ -84,6 +84,28 @@ function UploadedBuilding({ url, visibleFloors, exploded, onDimensions }: { url:
   return <primitive object={model.scene} />;
 }
 
+type Vec3 = [number, number, number];
+type CameraState = { position: Vec3; target: Vec3 };
+type CameraBridgeHandle = { read: () => CameraState | null };
+type OrbitLike = { target: THREE.Vector3; update: () => void };
+
+// Reads and applies the camera. Saved views use the viewer's re-centered clone space (see UploadedBuilding), the same space the camera lives in.
+function CameraBridge({ handle, applied }: { handle: { current: CameraBridgeHandle | null }; applied: { nonce: number; camera: CameraState } | null }) {
+  const camera = useThree((state) => state.camera);
+  const controls = useThree((state) => state.controls) as unknown as OrbitLike | null;
+  useEffect(() => {
+    handle.current = { read: () => controls ? { position: camera.position.toArray() as Vec3, target: controls.target.toArray() as Vec3 } : null };
+    return () => { handle.current = null; };
+  }, [camera, controls, handle]);
+  useEffect(() => {
+    if (!applied || !controls) return;
+    camera.position.set(...applied.camera.position);
+    controls.target.set(...applied.camera.target);
+    controls.update();
+  }, [applied, camera, controls]);
+  return null;
+}
+
 export default function ArchitecturalViewer() {
   const [floors, setFloors] = useState([true, true, true]);
   const [exploded, setExploded] = useState(false);
@@ -100,9 +122,26 @@ export default function ArchitecturalViewer() {
   const [savingModel, setSavingModel] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [error, setError] = useState('');
+  const [background, setBackground] = useState('#101722');
+  const [views, setViews] = useState<CadView[]>([]);
+  const [viewName, setViewName] = useState('');
+  const [viewMessage, setViewMessage] = useState('');
+  const [applied, setApplied] = useState<{ nonce: number; camera: CameraState } | null>(null);
+  const cameraHandle = useRef<CameraBridgeHandle | null>(null);
   const handleModelDimensions = useCallback((next: { width: number; depth: number; height: number }) => {
     setModelSize((previous) => previous && Math.abs(previous.width - next.width) < 0.01 && Math.abs(previous.depth - next.depth) < 0.01 && Math.abs(previous.height - next.height) < 0.01 ? previous : next);
   }, []);
+  // Floor switches follow the model's storey count (3 for the built-in sample); a new model drops any restored camera so Bounds fits it again.
+  useEffect(() => { setFloors(Array(modelUrl ? modelStoreyCount : 3).fill(true)); setExploded(false); setApplied(null); setBackground('#101722'); }, [modelUrl, modelStoreyCount]);
+  useEffect(() => {
+    setViews([]); setViewMessage('');
+    if (!selectedModelId) return;
+    let active = true;
+    fetch(`/api/models/${selectedModelId}/views`).then((response) => response.ok ? response.json() : Promise.reject(new Error('뷰를 불러오지 못했습니다.')))
+      .then((list: CadView[]) => { if (active) setViews(list); })
+      .catch(() => { if (active) setViewMessage('저장된 뷰를 불러오지 못했습니다.'); });
+    return () => { active = false; };
+  }, [selectedModelId]);
   useEffect(() => () => { if (modelUrl?.startsWith('blob:')) URL.revokeObjectURL(modelUrl); }, [modelUrl]);
   useEffect(() => {
     let active = true;
@@ -180,6 +219,33 @@ export default function ArchitecturalViewer() {
       setSaveMessage('모델을 삭제했습니다.');
     } catch (deleteError) { setError(deleteError instanceof Error ? deleteError.message : '모델을 삭제하지 못했습니다.'); }
   }
+  async function saveCurrentView() {
+    const current = cameraHandle.current?.read();
+    if (!selectedModelId || !current) return;
+    setViewMessage('');
+    try {
+      const response = await fetch(`/api/models/${selectedModelId}/views`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schemaVersion: 1, name: viewName.trim(), camera: current, floors, exploded, background }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || '뷰를 저장하지 못했습니다.');
+      setViews((list) => [...list, result as CadView]); setViewName(''); setViewMessage('뷰를 저장했습니다.');
+    } catch (saveError) { setViewMessage(saveError instanceof Error ? saveError.message : '뷰를 저장하지 못했습니다.'); }
+  }
+  function applyView(view: CadView) {
+    setFloors(view.floors); setExploded(view.exploded); setBackground(view.background);
+    setApplied({ nonce: Date.now(), camera: view.camera }); setViewMessage('');
+  }
+  async function removeView(view: CadView) {
+    if (!selectedModelId) return;
+    try {
+      const response = await fetch(`/api/models/${selectedModelId}/views/${view.id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error((await response.json()).error || '뷰를 삭제하지 못했습니다.');
+      setViews((list) => list.filter((item) => item.id !== view.id)); setViewMessage('뷰를 삭제했습니다.');
+    } catch (deleteError) { setViewMessage(deleteError instanceof Error ? deleteError.message : '뷰를 삭제하지 못했습니다.'); }
+  }
+  const selectedModel = savedModels.find((model) => model.id === selectedModelId);
   const visibleFloorCount = floors.filter(Boolean).length;
   const hasUploadedModel = Boolean(modelUrl);
   return <main className="cad-viewer-page">
@@ -207,6 +273,16 @@ export default function ArchitecturalViewer() {
           <div className="cad-floor-list">{floors.map((visible, index) => <label key={index}><span><i>0{index + 1}</i> {index === 0 ? '1층 · 기준층' : `${index + 1}층 · 3.6 m 반복`}</span><input type="checkbox" disabled={hasUploadedModel && !modelStoreyCount} checked={visible} onChange={() => setFloors((current) => current.map((v, i) => i === index ? !v : v))} /></label>)}</div>
           <button disabled={hasUploadedModel && !modelStoreyCount} className={`cad-toggle ${exploded ? 'selected' : ''}`} onClick={() => setExploded(!exploded)}><span>↕</span> 층 분해도 {exploded ? '켜짐' : '보기'}</button>
         </section>
+        {selectedModelId && <section className="cad-control-section">
+          <div className="cad-control-heading"><span>V</span><div><b>저장된 뷰</b><small>{views.length}/20 · 카메라·층·분해·배경색</small></div></div>
+          {selectedModel?.invalid ? <p className="cad-error">검증에 실패한 모델이라 뷰를 쓸 수 없습니다. 모델을 다시 등록해 주세요.</p> : <>
+            <label className="cad-range-label"><span>배경색</span><input type="color" value={background} onChange={(event) => setBackground(event.target.value)} aria-label="배경색" /></label>
+            <input className="cad-view-name" type="text" maxLength={60} value={viewName} placeholder="뷰 이름" onChange={(event) => setViewName(event.target.value)} />
+            <button className="cad-toggle" disabled={!viewName.trim() || views.length >= 20} onClick={saveCurrentView}>현재 보기 저장</button>
+            {views.map((view) => <div key={view.id} className="cad-model-entry"><button onClick={() => applyView(view)}><b>{view.name}</b></button><button className="cad-model-delete" onClick={() => removeView(view)} aria-label={`${view.name} 삭제`}>×</button></div>)}
+          </>}
+          {viewMessage && <p className="cad-hint" role="status">{viewMessage}</p>}
+        </section>}
         <section className="cad-control-section">
           <div className="cad-control-heading"><span>03</span><div><b>남측 커튼월</b><small>파사드 모듈 간격</small></div></div>
           <label className="cad-switch"><span>유리 파사드</span><input type="checkbox" disabled={hasUploadedModel} checked={curtain} onChange={(e) => setCurtain(e.target.checked)} /></label>
@@ -224,12 +300,13 @@ export default function ArchitecturalViewer() {
         <div className="cad-viewport-top"><div><span className="cad-live-dot" /> 3D MODEL SPACE <small>· {modelName || 'CONCEPT STUDY 001'}</small></div><span>ORTHO / PERSPECTIVE</span></div>
         <div className="cad-canvas">
           <Canvas shadows dpr={[1, 1.6]} camera={{ position: [23, 16, 22], fov: 36 }} gl={{ antialias: true }}>
-            <color attach="background" args={['#101722']} />
+            <color attach="background" args={[background]} />
             <ambientLight intensity={1.05} />
             <hemisphereLight args={['#dbeafe', '#293445', 1.3]} />
             <directionalLight position={[10, 18, 12]} intensity={3} castShadow shadow-mapSize={[2048, 2048]} />
             <directionalLight position={[-12, 9, -8]} intensity={1.2} color="#a6c8ff" />
-            <Suspense fallback={null}>{modelUrl ? <Bounds key={`${modelUrl}:${floors.map((visible) => Number(visible)).join('')}:${Number(exploded)}`} fit clip observe margin={1.3}><UploadedBuilding url={modelUrl} visibleFloors={floors} exploded={exploded} onDimensions={handleModelDimensions} /></Bounds> : <Building visibleFloors={floors} exploded={exploded} curtainWall={curtain} panelSpacing={spacing} material={material} />}</Suspense>
+            <CameraBridge handle={cameraHandle} applied={applied} />
+            <Suspense fallback={null}>{modelUrl ? applied ? <UploadedBuilding url={modelUrl} visibleFloors={floors} exploded={exploded} onDimensions={handleModelDimensions} /> : <Bounds key={`${modelUrl}:${floors.map((visible) => Number(visible)).join('')}:${Number(exploded)}`} fit clip observe margin={1.3}><UploadedBuilding url={modelUrl} visibleFloors={floors} exploded={exploded} onDimensions={handleModelDimensions} /></Bounds> : <Building visibleFloors={floors} exploded={exploded} curtainWall={curtain} panelSpacing={spacing} material={material} />}</Suspense>
             <OrbitControls makeDefault target={[0, 5.2, 0]} minDistance={12} maxDistance={65} maxPolarAngle={Math.PI * 0.48} />
           </Canvas>
           <div className="cad-orientation"><b>N</b><span>▲</span><small>S</small></div>

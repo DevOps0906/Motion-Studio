@@ -44,7 +44,8 @@ function createBackup(label='',{skipPrune=false}={}){
 // True while the web server answers its health URL (MOTION_STUDIO_URL, default http://127.0.0.1:$PORT or 3000). Maintenance scripts refuse to run then.
 async function serverAnswers(){
  const base=(process.env.MOTION_STUDIO_URL||`http://127.0.0.1:${process.env.PORT||3000}`).replace(/\/+$/,'');
- try{await fetch(base+'/api/health',{signal:AbortSignal.timeout(2000)});return true;}catch{return false;}
+ // Only a refused connection proves the server is down; a timeout or any other error is uncertain and counts as running.
+ try{await fetch(base+'/api/health',{signal:AbortSignal.timeout(2000)});return true;}catch(error){return (error&&error.cause&&error.cause.code)!=='ECONNREFUSED';}
 }
 module.exports={createBackup,prune,listBackups,copyTree,SKIP,paths,serverAnswers};
 if(require.main===module){

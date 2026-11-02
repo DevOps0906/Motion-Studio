@@ -11,8 +11,8 @@
 | task-007 | 갤러리 섹션·페이지별 후기/FAQ (명세: tasks/task-007.md, REVISE 반영) | W4 | task-006 | 높음 | builder | 완료 |
 | task-008 | 계정별 자료 분리 (명세: tasks/task-008.md, 결정 9장·코드 완료 2026-11-02, 실제 데이터 migrate:owner 대기) | W4 | task-007 | 높음 | builder | 진행 |
 | task-009 | 운영자 전체 문의함 보기 (명세: tasks/task-009.md) | W4 | task-008 | 보통 | builder | 완료 |
-| task-010 | 3D 편집 A안: 뷰 저장·GLB 검증 (명세: tasks/task-010.md 7·8장, B·C·웹 연계는 A 후) | W5 | — | 보통~높음 | planner | 진행 |
-| task-011 | 영상 음성 인식 (명세: tasks/task-011.md 8·9장, ❓ 결정 대기) | W5 | task-008 | 높음 | planner | 대기 |
+| task-010 | 3D 편집 A안: 뷰 저장·GLB 검증 (명세: tasks/task-010.md 7·8장, B·C·웹 연계는 A 후) ·A안 완료 2026-11-02, B·C·웹 연계 대기)| W5 | — | 보통~높음 | planner | 진행 |
+| task-011 | 영상 음성 인식 (명세: tasks/task-011.md 8·9장, ❓ 결정 대기) ·벤치마크 완료)| W5 | task-008 | 높음 | planner | 진행 |
 
 상태: 대기 / 진행 / 완료 / 보류. 근거는 README `진행 현황` 절의 "다음 개발 단계"입니다.
 
@@ -26,6 +26,7 @@
 | 2026-11-01 | app/api/websites/[id]/route.ts, lib/server/accounts.ts, lib/server/website-requirements.ts:18 | 웹사이트 PATCH 무인증, 운영자 이메일 선점 가입 가능, 운영자 목록이 비면 Host 헤더로 권한 판정 (challenger 지적) | task-005 착수 전 필수 수정 |
 | 2026-11-01 | .env.example | 권한 설정으로 생성이 막혀 문의 알림 변수는 README `문의 알림 환경 변수`에만 정리 | 필요 시 사용자가 생성 |
 | 2026-11-01 | 웹사이트 초안 | 고객 기존 사이트 URL 분석(대안 B, SSRF·저작권 제약 필요) | 후속 task |
+| 2026-11-02 | scripts/restore.cjs | 서버 응답 판정을 자체 함수로 함(포트 9, 타임아웃=정지로 봄). backup.cjs serverAnswers는 타임아웃=중단으로 바뀜(task-010) | restore도 공용 serverAnswers로 통일 |
 | 2026-11-02 | next dev(webpack) 개발 서버 | 모든 페이지가 hydration 되지 않아 클라이언트 화면이 "계정 확인 중…"에서 멈춤(HMR WebSocket 연결 실패 ERR_INVALID_HTTP_RESPONSE). next start(운영 모드)는 정상 | proxy.ts가 /_next/webpack-hmr 업그레이드를 가로채는지 조사 |
 | 2026-11-02 | 저장 미리보기 갤러리 | 데스크톱(1280)에서도 왼쪽 메뉴 때문에 컨테이너 폭 기준 2열(3열은 내보낸 사이트 전체 폭에서만) | 컨테이너 기준 3열 구간 조정 여부 |
 | 2026-11-02 | lib/access-policy.ts, app/websites/[id]/page.tsx | 미인증 요청마다 사이트·미디어 전체를 읽음(task-007 보안 리뷰 🟡) | 다계정 이후 mtime 캐시나 요청 수 제한 |
