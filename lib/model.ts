@@ -10,7 +10,13 @@ export type Scene3D={modelId:string;keyframes:Scene3DKeyframe[];easing:'linear'|
 export type RenderJob = {ownerId?:string;assetToken?:string;id:string;workerToken?:string;projectId:string;projectSnapshot:Project;status:'queued'|'processing'|'completed'|'failed'|'canceled';progress:number;stage:string;createdAt:string;updatedAt:string;error?:string;pid?:number;outputPath?:string};
 // Saved viewer settings. Coordinates are in the re-centered clone space of the viewer (x/z centered on the model, y=0 at its lowest point).
 export type CadView = {id:string;schemaVersion:1;name:string;camera:{position:[number,number,number];target:[number,number,number]};floors:boolean[];exploded:boolean;background:string;createdAt:string;updatedAt:string};
-export type CadModelAsset = {ownerId?:string;id:string;name:string;sizeBytes:number;createdAt:string;gltfVersion:string;sceneCount:number;nodeCount:number;meshCount:number;materialCount:number;storeyCount:number;views?:CadView[];invalid?:string};
+// Saved 3D shape edits (task-010 plan C). One document per model; keys are ORIGINAL glTF node indices (decimal strings).
+// position/rotation(deg)/scale are relative to the node's original local TRS: offset added, rotation applied after it, scale multiplied.
+export type CadNodeEdit = {position?:[number,number,number];rotation?:[number,number,number];scale?:[number,number,number];hidden?:boolean;color?:string;roughness?:number};
+export type CadEdits = {schemaVersion:1;revision:number;overrides:Record<string,CadNodeEdit>};
+// Result of the last GLB validation, valid while the .glb mtime and size stay the same.
+export type CadValidation = {at:string;mtimeMs:number;size:number;nodeCount:number;matrixNodes?:number[];skinNodes?:number[]};
+export type CadModelAsset = {ownerId?:string;id:string;name:string;sizeBytes:number;createdAt:string;gltfVersion:string;sceneCount:number;nodeCount:number;meshCount:number;materialCount:number;storeyCount:number;views?:CadView[];invalid?:string;validated?:CadValidation};
 // 3D walkthrough limits (task-010 section 9): 1280x720, 30fps, up to 10 seconds, 2~8 keyframes.
 export const WALKTHROUGH_MAX_SECONDS=10,WALKTHROUGH_MIN_KEYFRAMES=2,WALKTHROUGH_MAX_KEYFRAMES=8;
 // Same camera limits as the viewer's OrbitControls and the saved-view validation (lib/server/cad-models.ts): distance 12~65 m, polar angle up to 0.48*PI.

@@ -129,6 +129,8 @@ const hashTree=dir=>{const out={};(function visit(current){for(const entry of fs
   'GET /api/models/[id]/views/[viewId]':{url:`/api/models/${modelA.id}/views/${viewA.id}`,params:{id:modelA.id,viewId:viewA.id}},
   'PUT /api/models/[id]/views/[viewId]':{url:`/api/models/${modelA.id}/views/${viewA.id}`,params:{id:modelA.id,viewId:viewA.id},json:viewBody},
   'DELETE /api/models/[id]/views/[viewId]':{url:`/api/models/${modelA.id}/views/${viewA.id}`,params:{id:modelA.id,viewId:viewA.id}},
+  'GET /api/models/[id]/edits':{url:`/api/models/${modelA.id}/edits`,params:{id:modelA.id}},
+  'PUT /api/models/[id]/edits':{url:`/api/models/${modelA.id}/edits`,params:{id:modelA.id},json:{schemaVersion:1,revision:0,overrides:{}}},
   'GET /api/models/[id]/asset':{url:`/api/models/${modelA.id}/asset`,params:{id:modelA.id}},
   'GET /api/renders/[id]':{url:`/api/renders/${jobId}`,params:{id:jobId}},
   'POST /api/renders/[id]/cancel':{url:`/api/renders/${jobId}/cancel`,params:{id:jobId}},

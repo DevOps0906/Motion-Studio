@@ -11,7 +11,7 @@
 | task-007 | 갤러리 섹션·페이지별 후기/FAQ (명세: tasks/task-007.md, REVISE 반영) | W4 | task-006 | 높음 | builder | 완료 |
 | task-008 | 계정별 자료 분리 (명세: tasks/task-008.md, 결정 9장·코드 완료 2026-11-02, 실제 데이터 migrate:owner 대기) | W4 | task-007 | 높음 | builder | 진행 |
 | task-009 | 운영자 전체 문의함 보기 (명세: tasks/task-009.md) | W4 | task-008 | 보통 | builder | 완료 |
-| task-010 | 3D 편집 A안: 뷰 저장·GLB 검증 (명세: tasks/task-010.md 7·8장, B·C·웹 연계는 A 후) ·A안 완료 2026-11-02, B·C·웹 연계 대기)| W5 | — | 보통~높음 | planner | 진행 |
+| task-010 | 3D 편집 A안: 뷰 저장·GLB 검증 (명세: tasks/task-010.md 7·8장, B·C·웹 연계는 A 후) ·A·B·C안 완료 2026-11-02, 편집의 영상 반영·H2 대기)| W5 | — | 보통~높음 | planner | 진행 |
 | task-011 | 영상 음성 인식 (명세: tasks/task-011.md 8·9장, ❓ 결정 대기) ·구현 완료 2026-11-02, Docker 빌드 미검증)| W5 | task-008 | 높음 | planner | 완료 |
 
 상태: 대기 / 진행 / 완료 / 보류. 근거는 README `진행 현황` 절의 "다음 개발 단계"입니다.

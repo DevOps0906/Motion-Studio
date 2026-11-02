@@ -1,13 +1,11 @@
 # NOW — 재진입 스냅샷 (30줄 이내, 매 작업 끝에 덮어쓴다)
 
-- 갱신: 2026-11-02
-- 현재 작업: task-008 실제 데이터 이전 보류(사용자 2026-11-02) — 이 폴더에 .local-data·backups 없음(운영 데이터 위치 사용자 확인 필요)
-- 마지막으로 한 일: W4 병렬 — task-006(필수 입력·주소 제안)·task-007(갤러리·페이지별 후기/FAQ)·task-008(계정별 자료 분리) 구현, 모두 reviewer code·security ACCEPT 후 🟡 반영
-- 다음 한 걸음: README 배포 순서대로 ① 백업 → ② 서버 정지(docker compose down) → ③ 코드 교체 → ④ migrate:owner --dry-run --owner skydy96@gmail.com → ⑤ migrate:owner → ⑥ 기동 → 재로그인·자료 보임·공개 미리보기 이미지 확인
-- 경고: 새 코드로 migrate 전에 기동하면 id 없는 계정은 전부 401(노출은 없음)
-- 열린 결정(사용자 확인 필요): 실제 데이터 이전 시점, 도메인, Dependabot PR #1~#4, Resend·Slack·Discord 키, 갤러리 제목 고정("갤러리") 유지 여부
-- 주의: 4101 포트 점유 → 4111. Codex 한도(2026-11-04 17:54) → reviewer로 대체. Git Bash python은 WindowsApps 스텁 → Python312 경로를 PATH 앞에. node_modules 없었음 → npm ci로 복원. next dev/build 후 next-env.d.ts 되돌리기
-- 알려진 한계: Docker 수동 시나리오·백업→이전→복원 리허설 미실시. 운영자 전체 문의함 UI 없음(API ?owner=all만). 3구간 화면 확인(shot) 미실시(task-006·007). 미인증 공개 판정 전수 읽기(수용한 위험)
-- SDLC 단계: 08 배포 준비
-- 테스트 상태: typecheck·test(test-ownership 51 메서드 동적)·build 통과(2026-11-02)
-- 남은 작업: task-008 실제 데이터 이전, task-005 2단계(도메인·HTTPS), 3D 편집, 영상 음성 인식
+- 갱신: 2026-11-02 (사용자 요청으로 오늘 작업 종료)
+- 현재 작업: 없음(정지). 마지막 커밋은 task-010 B안·C안 병합과 README 진행 현황 갱신(약 82%)
+- 오늘 완료: task-006(필수 입력·주소 제안), task-007(갤러리·페이지별 후기/FAQ), task-008(계정별 자료 분리 코드), task-009(운영자 전체 문의함), task-010 A(뷰 저장·GLB 검증)·B(3D 워크스루)·C(형상 편집 저장), task-011(음성 전사·SRT). 모두 reviewer code·security 거쳐 반영
+- 다음 한 걸음: task-010 편집 내용을 워크스루 영상에 반영(render.ts input.json edits:null → models/{id}/edits.json 읽기, remotion/Walkthrough3D.tsx Model에서 tagNodeIndices·buildEditedScene 적용) → H2 웹사이트 3D 섹션(명세 13장)
+- 열린 결정(사용자): 운영 데이터 위치(이 폴더에 .local-data·backups 없음 → migrate:owner 보류), 실제 사람 한국어 음성 샘플(STT 재측정), 도메인, Dependabot PR, 알림 키
+- 주의: next dev(webpack)는 hydration 안 됨 → 브라우저 검수는 next start(포트 4112)로. Git Bash python은 WindowsApps 스텁. worktree 3개(.claude/worktrees: PoC 3D 렌더·STT 벤치마크·C안) 남아 있음 — PoC 브랜치는 기록용
+- 알려진 한계: Docker 빌드(whisper.cpp)·Linux 렌더 미검증, 전사 시간 렌더 미반영, C안 편집 UI 브라우저 미확인, restore.cjs 서버 판정 함수 미통일
+- SDLC 단계: 08 배포 준비 + 기능 확장(W4·W5)
+- 테스트 상태: typecheck·test·build 통과(2026-11-02, 병합 후)

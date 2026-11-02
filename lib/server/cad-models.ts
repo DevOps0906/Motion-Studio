@@ -4,8 +4,9 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DATA, streamFile, writeJson } from './store';
 import { NotFoundError, allow, type Actor, type RecordAction } from './owner';
-import type { CadModelAsset, CadView } from '../model';
+import type { CadEdits, CadModelAsset, CadNodeEdit, CadValidation, CadView } from '../model';
 import { validateGlb } from '../glb-validate';
+import { EDIT_LIMITS, emptyEdits } from '../cad-edit-limits';
 
 const MODEL_DIR = path.join(DATA, 'models');
 const MAX_MODEL_BYTES = 100 * 1024 * 1024;
@@ -13,6 +14,9 @@ const MAX_MODEL_BYTES = 100 * 1024 * 1024;
 export const validModelId = (id: string) => /^[a-f0-9-]{36}$/i.test(id);
 const modelJson = (id: string) => path.join(MODEL_DIR, `${id}.json`);
 const modelBinary = (id: string) => path.join(MODEL_DIR, `${id}.glb`);
+// The edit document lives in a folder named by the model id (a .json beside the record would be listed and reassigned as a model).
+const editsDir = (id: string) => path.join(MODEL_DIR, id);
+const editsFile = (id: string) => path.join(editsDir(id), 'edits.json');
 
 export async function listCadModels(): Promise<CadModelAsset[]> {
   await fs.mkdir(MODEL_DIR, { recursive: true });
@@ -51,7 +55,7 @@ function enqueue<T>(id: string, task: () => Promise<T>): Promise<T> {
 export function deleteCadModel(id: string, actor: Actor) {
   return enqueue(id, async () => {
     const model = await getOwnedModel(id, actor, 'delete');
-    await Promise.all([fs.rm(modelBinary(id), { force: true }), fs.rm(modelJson(id), { force: true })]);
+    await Promise.all([fs.rm(modelBinary(id), { force: true }), fs.rm(editsDir(id), { recursive: true, force: true }), fs.rm(modelJson(id), { force: true })]);
     return model;
   });
 }
@@ -151,6 +155,118 @@ export function deleteCadView(id: string, viewId: string, actor: Actor): Promise
   }, true);
 }
 
+// ---- 3D shape edits (task-010 plan C): one edits.json per model, keyed by original glTF node index, revision-checked.
+export class HttpError extends Error {
+  constructor(readonly status: number, message: string, readonly extra: Record<string, unknown> = {}) { super(message); }
+}
+
+function validationOf(bytes: Buffer, stat: { mtimeMs: number; size: number }): CadValidation {
+  const json = JSON.parse(bytes.toString('utf8', 20, 20 + bytes.readUInt32LE(12)).replace(/[\0\s]+$/, '')) as { nodes?: Array<{ matrix?: unknown; skin?: unknown } | null>; skins?: Array<{ joints?: unknown } | null> };
+  const nodes = json.nodes ?? [];
+  const matrixNodes = nodes.flatMap((node, index) => (node && node.matrix !== undefined ? [index] : []));
+  // Skinned meshes and their bones (joints) cannot be edited by cloning the scene.
+  const skin = new Set<number>(nodes.flatMap((node, index) => (node && node.skin !== undefined ? [index] : [])));
+  for (const entry of json.skins ?? []) if (Array.isArray(entry?.joints)) for (const joint of entry.joints) if (typeof joint === 'number') skin.add(joint);
+  return { at: new Date().toISOString(), mtimeMs: stat.mtimeMs, size: stat.size, nodeCount: nodes.length, ...(matrixNodes.length ? { matrixNodes } : {}), skinNodes: [...skin].sort((a, b) => a - b) };
+}
+
+// Entering an edit re-validates the GLB only when its mtime or size changed since the last check. A re-check shares the upload slots (it reads up to 100MiB).
+async function ensureValidated(id: string, model: CadModelAsset): Promise<CadValidation> {
+  const stat = await fs.stat(modelBinary(id));
+  const known = model.validated;
+  // A stamp from before skinNodes existed is not trusted (it has no skin information).
+  if (known && Array.isArray(known.skinNodes) && known.mtimeMs === stat.mtimeMs && known.size === stat.size) return known;
+  const release = acquireUploadSlot();
+  if (!release) throw new HttpError(429, '서버가 다른 모델을 처리 중입니다. 잠시 후 다시 시도해 주세요.');
+  try {
+    const bytes = await fs.readFile(modelBinary(id));
+    try { validateGlb(bytes); }
+    catch (error) {
+      model.invalid = error instanceof Error ? error.message : '검증에 실패했습니다.';
+      delete model.validated;
+      await writeJson(modelJson(id), model);
+      throw new HttpError(400, '검증에 실패한 모델이라 편집할 수 없습니다. 모델을 다시 등록해 주세요.');
+    }
+    model.validated = validationOf(bytes, stat);
+    await writeJson(modelJson(id), model);
+    return model.validated;
+  } finally { release(); }
+}
+
+const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+function triple(value: unknown, label: string, min: number, max: number): [number, number, number] {
+  if (!Array.isArray(value) || value.length !== 3 || value.some((n) => !finite(n) || n < min || n > max)) throw new Error(`${label} 값은 ${min}~${max} 범위의 숫자 3개여야 합니다.`);
+  return value as [number, number, number];
+}
+
+// Returns the normalized document (revision as sent). Throws Error (-> 400) for anything outside the schema.
+export function validateCadEdits(input: unknown, model: { nodeCount: number; matrixNodes?: number[]; skinNodes?: number[] }): CadEdits {
+  if (!isObject(input)) throw new Error('편집 데이터가 올바르지 않습니다.');
+  if (input.schemaVersion !== 1) throw new Error('지원하지 않는 편집 버전입니다.');
+  if (Object.keys(input).some((key) => !['schemaVersion', 'revision', 'overrides'].includes(key))) throw new Error('알 수 없는 편집 항목이 있습니다.');
+  if (typeof input.revision !== 'number' || !Number.isInteger(input.revision) || input.revision < 0) throw new Error('revision이 올바르지 않습니다.');
+  if (!isObject(input.overrides)) throw new Error('overrides가 올바르지 않습니다.');
+  const keys = Object.keys(input.overrides);
+  if (keys.length > EDIT_LIMITS.maxOverrides) throw new Error(`편집한 노드는 ${EDIT_LIMITS.maxOverrides}개까지 저장할 수 있습니다.`);
+  const matrix = new Set(model.matrixNodes ?? []), skinned = new Set(model.skinNodes ?? []);
+  const overrides: Record<string, CadNodeEdit> = {};
+  for (const key of keys) {
+    if (!/^(0|[1-9]\d{0,4})$/.test(key) || Number(key) >= model.nodeCount) throw new Error(`없는 노드입니다: ${key.slice(0, 12)}`);
+    if (matrix.has(Number(key))) throw new Error(`matrix로 정의된 노드는 편집할 수 없습니다: ${key}`);
+    if (skinned.has(Number(key))) throw new Error(`스킨 메시와 본 노드는 편집할 수 없습니다: ${key}`);
+    const edit = input.overrides[key];
+    if (!isObject(edit) || !Object.keys(edit).length) throw new Error(`노드 ${key}의 편집 값이 올바르지 않습니다.`);
+    if (Object.keys(edit).some((field) => !['position', 'rotation', 'scale', 'hidden', 'color', 'roughness'].includes(field))) throw new Error(`노드 ${key}에 지원하지 않는 편집 항목이 있습니다.`);
+    const clean: CadNodeEdit = {};
+    if (edit.position !== undefined) clean.position = triple(edit.position, '이동', -EDIT_LIMITS.position, EDIT_LIMITS.position);
+    if (edit.rotation !== undefined) clean.rotation = triple(edit.rotation, '회전', -EDIT_LIMITS.rotation, EDIT_LIMITS.rotation);
+    if (edit.scale !== undefined) clean.scale = triple(edit.scale, '크기', EDIT_LIMITS.scaleMin, EDIT_LIMITS.scaleMax);
+    if (edit.hidden !== undefined) { if (typeof edit.hidden !== 'boolean') throw new Error('숨김 값이 올바르지 않습니다.'); clean.hidden = edit.hidden; }
+    if (edit.color !== undefined) { if (typeof edit.color !== 'string' || !/^#[\da-f]{6}$/i.test(edit.color)) throw new Error('재질 색을 확인해 주세요.'); clean.color = edit.color.toLowerCase(); }
+    if (edit.roughness !== undefined) { if (!finite(edit.roughness) || edit.roughness < 0 || edit.roughness > 1) throw new Error('거칠기는 0~1 범위여야 합니다.'); clean.roughness = edit.roughness; }
+    overrides[key] = clean;
+  }
+  return { schemaVersion: 1, revision: input.revision, overrides };
+}
+
+async function readEdits(id: string): Promise<CadEdits> {
+  let text: string;
+  try { text = await fs.readFile(editsFile(id), 'utf8'); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return emptyEdits();
+    throw new HttpError(500, '저장된 편집 문서를 읽을 수 없습니다.');
+  }
+  // Never reset a damaged document silently: the next save would overwrite what is left of it.
+  try {
+    const doc = JSON.parse(text) as unknown;
+    if (!isObject(doc) || doc.schemaVersion !== 1 || typeof doc.revision !== 'number' || !Number.isInteger(doc.revision) || doc.revision < 0 || !isObject(doc.overrides)) throw new Error('shape');
+    return doc as unknown as CadEdits;
+  } catch { throw new HttpError(500, '저장된 편집 문서를 읽을 수 없습니다.'); }
+}
+
+export async function getCadEdits(id: string, actor: Actor): Promise<CadEdits> {
+  await getOwnedModel(id, actor, 'view');
+  return readEdits(id);
+}
+
+// 'change' ownership first (operators get 404 on foreign models), then the .glb must exist, then validation, then the revision check.
+export function saveCadEdits(id: string, input: unknown, actor: Actor): Promise<CadEdits> {
+  return enqueue(id, async () => {
+    const model = await getOwnedModel(id, actor, 'change');
+    try { await fs.access(modelBinary(id)); } catch { throw new NotFoundError(); }
+    if (model.invalid) throw new HttpError(400, '검증에 실패한 모델이라 편집할 수 없습니다. 모델을 다시 등록해 주세요.');
+    const validation = await ensureValidated(id, model);
+    let sent: CadEdits;
+    try { sent = validateCadEdits(input, validation); }
+    catch (error) { throw new HttpError(400, error instanceof Error ? error.message : '편집 데이터가 올바르지 않습니다.'); }
+    const current = await readEdits(id);
+    if (sent.revision !== current.revision) throw new HttpError(409, '다른 곳에서 먼저 저장되었습니다. 최신 편집을 다시 불러와 주세요.', { revision: current.revision });
+    const next: CadEdits = { schemaVersion: 1, revision: current.revision + 1, overrides: sent.overrides };
+    await writeJson(editsFile(id), next);
+    return next;
+  });
+}
+
 export async function saveCadModel(name: string, bytes: Buffer, actor: Actor): Promise<CadModelAsset> {
   if (bytes.byteLength > MAX_MODEL_BYTES) throw new Error('GLB 파일은 100MiB 이하로 등록해 주세요.');
   const summary = validateGlb(bytes);
@@ -167,6 +283,8 @@ export async function saveCadModel(name: string, bytes: Buffer, actor: Actor): P
   try {
     await fs.writeFile(temp, bytes, { flag: 'wx' });
     await fs.rename(temp, modelBinary(id));
+    // Just validated: remember it so the first edit save does not read the file again.
+    record.validated = validationOf(bytes, await fs.stat(modelBinary(id)));
     await writeJson(modelJson(id), record);
     return record;
   } catch (error) {
@@ -189,10 +307,10 @@ export { MAX_MODEL_BYTES };
 
 // View bodies are tiny: refuse before reading when Content-Length is missing (411) or above 8KB (413).
 export const MAX_VIEW_BODY_BYTES = 8 * 1024;
-export function limitBody(request: Request): Response | null {
+export function limitBody(request: Request, maxBytes = MAX_VIEW_BODY_BYTES): Response | null {
   const header = request.headers.get('content-length');
   const length = Number(header);
   if (!header || !Number.isFinite(length)) return Response.json({ error: '요청 길이(Content-Length)가 필요합니다.' }, { status: 411 });
-  if (length > MAX_VIEW_BODY_BYTES) return Response.json({ error: '요청이 너무 큽니다.' }, { status: 413 });
+  if (length > maxBytes) return Response.json({ error: '요청이 너무 큽니다.' }, { status: 413 });
   return null;
 }
