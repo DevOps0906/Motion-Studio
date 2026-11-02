@@ -1,10 +1,11 @@
 ﻿'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bounds, Grid, OrbitControls, Text, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import type { CadModelAsset, CadView } from '../../../lib/model';
+import type { CadEdits, CadModelAsset, CadNodeEdit, CadView } from '../../../lib/model';
+import { EDIT_LIMITS, buildEditedScene, emptyEdits, tagNodeIndices } from '../../../lib/cad-edits';
 
 type MaterialKey = 'limestone' | 'concrete' | 'sand';
 const materials: Record<MaterialKey, { label: string; color: string; emissive: string }> = {
@@ -59,29 +60,36 @@ function Building({ visibleFloors, exploded, curtainWall, panelSpacing, material
   </group>;
 }
 
-function UploadedBuilding({ url, visibleFloors, exploded, onDimensions }: { url: string; visibleFloors: boolean[]; exploded: boolean; onDimensions: (dimensions: { width: number; depth: number; height: number }) => void }) {
-  const { scene } = useGLTF(url);
+const UNDO_LIMIT = 50;
+type SelectedNode ={ index: number; name: string; matrix: boolean };
+const nodeObject = (object: THREE.Object3D | null) => { let current = object; while (current && typeof current.userData.nodeIndex !== 'number') current = current.parent; return current; };
+
+function SelectionBox({ object }: { object?: THREE.Object3D }) {
+  const helper = useMemo(() => new THREE.Box3Helper(new THREE.Box3(), new THREE.Color('#ffd54a')), []);
+  useFrame(() => { helper.visible = Boolean(object); if (object) helper.box.setFromObject(object); });
+  return <primitive object={helper} />;
+}
+
+// Edits (3D shape edit document) are applied by lib/cad-edits.ts: first the edits, then floors/explode on top.
+function UploadedBuilding({ url, visibleFloors, exploded, edits, selectedNode, onSelect, onDimensions }: { url: string; visibleFloors: boolean[]; exploded: boolean; edits: CadEdits; selectedNode: number | null; onSelect: (node: SelectedNode | null) => void; onDimensions: (dimensions: { width: number; depth: number; height: number }) => void }) {
+  const gltf = useGLTF(url);
   const model = useMemo(() => {
-    const clone = scene.clone(true);
-    const box = new THREE.Box3().setFromObject(clone);
-    const dimensions = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    clone.position.set(-center.x, -box.min.y, -center.z);
-    clone.traverse((object) => {
-      const storeyId = object.userData.storeyId;
-      if (typeof storeyId === 'string' && /^\d+$/.test(storeyId)) {
-        const floorIndex = Number(storeyId) - 1;
-        const baseElevation = Number(object.userData.elevationM ?? floorIndex * 3.6);
-        object.visible = visibleFloors[floorIndex] ?? true;
-        object.position.y = baseElevation + (exploded ? floorIndex * 0.85 : 0);
-      } else if (object.userData.system === 'roof' && typeof object.userData.elevationM === 'number') {
-        object.position.y = object.userData.elevationM + (exploded ? 1.7 : 0);
-      }
-    });
-    return { scene: clone, dimensions: { width: dimensions.x, depth: dimensions.z, height: dimensions.y } };
-  }, [scene, visibleFloors, exploded]);
+    tagNodeIndices(gltf);
+    const built = buildEditedScene(gltf.scene, edits, { visibleFloors, exploded });
+    const byIndex = new Map<number, THREE.Object3D>();
+    built.scene.traverse((object) => { if (typeof object.userData.nodeIndex === 'number') byIndex.set(object.userData.nodeIndex, object); });
+    return { ...built, byIndex };
+  }, [gltf, visibleFloors, exploded, edits]);
   useEffect(() => onDimensions(model.dimensions), [model, onDimensions]);
-  return <primitive object={model.scene} />;
+  return <>
+    <primitive object={model.scene} onClick={(event: { stopPropagation: () => void; delta: number; object: THREE.Object3D }) => {
+      if (event.delta > 4) return;
+      event.stopPropagation();
+      const node = nodeObject(event.object);
+      onSelect(node ? { index: node.userData.nodeIndex as number, name: node.name, matrix: Boolean(node.userData.cadMatrix) } : null);
+    }} />
+    <SelectionBox object={selectedNode === null ? undefined : model.byIndex.get(selectedNode)} />
+  </>;
 }
 
 type Vec3 = [number, number, number];
@@ -128,6 +136,21 @@ export default function ArchitecturalViewer() {
   const [viewMessage, setViewMessage] = useState('');
   const [applied, setApplied] = useState<{ nonce: number; camera: CameraState } | null>(null);
   const cameraHandle = useRef<CameraBridgeHandle | null>(null);
+  // 3D shape edits: `savedEdits` is the server document (with revision), `draft` the working overrides, `undoStack` the last 50 drafts.
+  const [savedEdits, setSavedEdits] = useState<CadEdits>(emptyEdits());
+  const [draft, setDraft] = useState<Record<string, CadNodeEdit>>({});
+  const [undoStack, setUndoStack] = useState<Record<string, CadNodeEdit>[]>([]);
+  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
+  const [editMessage, setEditMessage] = useState('');
+  const [editConflict, setEditConflict] = useState(false);
+  const draftEdits = useMemo<CadEdits>(() => ({ ...savedEdits, overrides: draft }), [savedEdits, draft]);
+  const loadEdits = useCallback(async (modelId: string, isCurrent: () => boolean = () => true) => {
+    const response = await fetch(`/api/models/${modelId}/edits`);
+    if (!response.ok) throw new Error('저장된 편집을 불러오지 못했습니다.');
+    const doc = await response.json() as CadEdits;
+    if (!isCurrent()) return;
+    setSavedEdits(doc); setDraft(doc.overrides); setUndoStack([]); setEditConflict(false);
+  }, []);
   const handleModelDimensions = useCallback((next: { width: number; depth: number; height: number }) => {
     setModelSize((previous) => previous && Math.abs(previous.width - next.width) < 0.01 && Math.abs(previous.depth - next.depth) < 0.01 && Math.abs(previous.height - next.height) < 0.01 ? previous : next);
   }, []);
@@ -142,6 +165,13 @@ export default function ArchitecturalViewer() {
       .catch(() => { if (active) setViewMessage('저장된 뷰를 불러오지 못했습니다.'); });
     return () => { active = false; };
   }, [selectedModelId]);
+  useEffect(() => {
+    setSavedEdits(emptyEdits()); setDraft({}); setUndoStack([]); setSelectedNode(null); setEditMessage(''); setEditConflict(false);
+    if (!selectedModelId) return;
+    let active = true;
+    loadEdits(selectedModelId, () => active).catch((loadError) => { if (active) setEditMessage(loadError instanceof Error ? loadError.message : '저장된 편집을 불러오지 못했습니다.'); });
+    return () => { active = false; };
+  }, [selectedModelId, loadEdits]);
   useEffect(() => () => { if (modelUrl?.startsWith('blob:')) URL.revokeObjectURL(modelUrl); }, [modelUrl]);
   useEffect(() => {
     let active = true;
@@ -245,7 +275,59 @@ export default function ArchitecturalViewer() {
       setViews((list) => list.filter((item) => item.id !== view.id)); setViewMessage('뷰를 삭제했습니다.');
     } catch (deleteError) { setViewMessage(deleteError instanceof Error ? deleteError.message : '뷰를 삭제하지 못했습니다.'); }
   }
+  function editNode(update: (current: CadNodeEdit) => CadNodeEdit) {
+    if (!selectedNode || selectedNode.matrix) return;
+    const key = String(selectedNode.index);
+    if (!(key in draft) && Object.keys(draft).length >= EDIT_LIMITS.maxOverrides) { setEditMessage(`편집한 노드는 ${EDIT_LIMITS.maxOverrides}개까지입니다.`); return; }
+    const next = update(draft[key] ?? {});
+    setUndoStack((stack) => [...stack.slice(-(UNDO_LIMIT - 1)), draft]);
+    setDraft((current) => { const copy = { ...current }; if (Object.keys(next).length) copy[key] = next; else delete copy[key]; return copy; });
+    setEditMessage('');
+  }
+  function setVector(field: 'position' | 'rotation' | 'scale', axis: number, raw: string) {
+    const number = Number(raw);
+    if (raw.trim() === '' || !Number.isFinite(number)) return;
+    const [min, max, neutral] = field === 'position' ? [-EDIT_LIMITS.position, EDIT_LIMITS.position, 0] : field === 'rotation' ? [-EDIT_LIMITS.rotation, EDIT_LIMITS.rotation, 0] : [EDIT_LIMITS.scaleMin, EDIT_LIMITS.scaleMax, 1];
+    editNode((current) => {
+      const vector: [number, number, number] = [...(current[field] ?? [neutral, neutral, neutral])];
+      vector[axis] = Math.min(max, Math.max(min, number));
+      const { [field]: _removed, ...rest } = current; void _removed;
+      return vector.every((value) => value === neutral) ? rest : { ...rest, [field]: vector };
+    });
+  }
+  function undoEdit() {
+    const previous = undoStack[undoStack.length - 1];
+    if (!previous) return;
+    setUndoStack((stack) => stack.slice(0, -1)); setDraft(previous);
+  }
+  async function saveEdits() {
+    if (!selectedModelId) return;
+    setEditMessage('저장 중…');
+    try {
+      const response = await fetch(`/api/models/${selectedModelId}/edits`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schemaVersion: 1, revision: savedEdits.revision, overrides: draft }),
+      });
+      const result = await response.json();
+      if (response.status === 409) setEditConflict(true);
+      if (!response.ok) throw new Error(result.error || '편집을 저장하지 못했습니다.');
+      setSavedEdits(result as CadEdits); setDraft((result as CadEdits).overrides); setUndoStack([]); setEditConflict(false); setEditMessage('편집을 저장했습니다.');
+    } catch (saveError) { setEditMessage(saveError instanceof Error ? saveError.message : '편집을 저장하지 못했습니다.'); }
+  }
   const selectedModel = savedModels.find((model) => model.id === selectedModelId);
+  const editable = Boolean(selectedModelId) && !selectedModel?.invalid;
+  const editsDirty = JSON.stringify(draft) !== JSON.stringify(savedEdits.overrides);
+  const selectedEdit = selectedNode ? draft[String(selectedNode.index)] : undefined;
+  const vectorRow = (label: string, field: 'position' | 'rotation' | 'scale', neutral: number, step: number) => <>
+    <span>{label}</span>
+    {[0, 1, 2].map((axis) => {
+      const current = selectedEdit?.[field]?.[axis] ?? neutral;
+      // Committed on blur/Enter so a half-typed value like "-" is never sent through the edit pipeline.
+      return <input key={`${selectedNode?.index}:${field}${axis}:${current}`} type="number" step={step} aria-label={`${label} ${'XYZ'[axis]}`} disabled={!selectedNode || selectedNode.matrix}
+        defaultValue={current} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+        onBlur={(event) => { if (Number(event.target.value) !== current) setVector(field, axis, event.target.value); }} />;
+    })}
+  </>;
   const visibleFloorCount = floors.filter(Boolean).length;
   const hasUploadedModel = Boolean(modelUrl);
   return <main className="cad-viewer-page">
@@ -283,6 +365,30 @@ export default function ArchitecturalViewer() {
           </>}
           {viewMessage && <p className="cad-hint" role="status">{viewMessage}</p>}
         </section>}
+        {editable && <section className="cad-control-section">
+          <div className="cad-control-heading"><span>E</span><div><b>형상 편집</b><small>{Object.keys(draft).length}/{EDIT_LIMITS.maxOverrides}개 노드 편집 · 이동·회전·크기·숨김·재질</small></div></div>
+          {!selectedNode ? <p className="cad-hint">화면에서 부품을 클릭해 선택하세요.</p> : <>
+            <p className="cad-edit-node" title={selectedNode.name}>#{selectedNode.index} {selectedNode.name || '(이름 없음)'}</p>
+            {selectedNode.matrix && <p className="cad-error">matrix로 정의된 노드는 편집할 수 없습니다.</p>}
+            <div className="cad-edit-grid">
+              {vectorRow('이동 m', 'position', 0, 0.1)}{vectorRow('회전 °', 'rotation', 0, 5)}{vectorRow('크기 ×', 'scale', 1, 0.1)}
+            </div>
+            <label className="cad-switch"><span>숨김</span><input type="checkbox" disabled={selectedNode.matrix} checked={Boolean(selectedEdit?.hidden)} onChange={(event) => editNode(({ hidden: _hidden, ...rest }) => { void _hidden; return event.target.checked ? { ...rest, hidden: true } : rest; })} /></label>
+            <label className="cad-range-label"><span>재질 색</span><input type="color" disabled={selectedNode.matrix} value={selectedEdit?.color ?? '#ffffff'} onChange={(event) => editNode((current) => ({ ...current, color: event.target.value }))} aria-label="재질 색" /></label>
+            <label className="cad-range-label"><span>거칠기</span><b>{selectedEdit?.roughness === undefined ? '원본' : selectedEdit.roughness.toFixed(2)}</b></label>
+            <input className="cad-range" type="range" min="0" max="1" step="0.05" disabled={selectedNode.matrix} value={selectedEdit?.roughness ?? 0.5} onChange={(event) => editNode((current) => ({ ...current, roughness: Number(event.target.value) }))} aria-label="거칠기" />
+            <div className="cad-edit-row">
+              <button disabled={!selectedEdit} onClick={() => editNode(() => ({}))}>이 노드 초기화</button>
+              <button disabled={!selectedEdit?.color && selectedEdit?.roughness === undefined} onClick={() => editNode(({ color: _color, roughness: _roughness, ...rest }) => { void _color; void _roughness; return rest; })}>재질 원본</button>
+            </div>
+          </>}
+          <div className="cad-edit-row">
+            <button disabled={!undoStack.length} onClick={undoEdit}>되돌리기 ({undoStack.length})</button>
+            <button disabled={!editsDirty} onClick={saveEdits}>{editsDirty ? '편집 저장' : '저장됨'}</button>
+          </div>
+          {editConflict && <button className="cad-toggle" onClick={() => selectedModelId && loadEdits(selectedModelId).then(() => setEditMessage('최신 편집을 불러왔습니다.')).catch(() => setEditMessage('저장된 편집을 불러오지 못했습니다.'))}>최신 편집 다시 불러오기 (내 변경은 버려집니다)</button>}
+          {editMessage && <p className="cad-hint" role="status">{editMessage}</p>}
+        </section>}
         <section className="cad-control-section">
           <div className="cad-control-heading"><span>03</span><div><b>남측 커튼월</b><small>파사드 모듈 간격</small></div></div>
           <label className="cad-switch"><span>유리 파사드</span><input type="checkbox" disabled={hasUploadedModel} checked={curtain} onChange={(e) => setCurtain(e.target.checked)} /></label>
@@ -299,14 +405,14 @@ export default function ArchitecturalViewer() {
       <section className="cad-viewport-section">
         <div className="cad-viewport-top"><div><span className="cad-live-dot" /> 3D MODEL SPACE <small>· {modelName || 'CONCEPT STUDY 001'}</small></div><span>ORTHO / PERSPECTIVE</span></div>
         <div className="cad-canvas">
-          <Canvas shadows dpr={[1, 1.6]} camera={{ position: [23, 16, 22], fov: 36 }} gl={{ antialias: true }}>
+          <Canvas shadows dpr={[1, 1.6]} camera={{ position: [23, 16, 22], fov: 36 }} gl={{ antialias: true }} onPointerMissed={() => setSelectedNode(null)}>
             <color attach="background" args={[background]} />
             <ambientLight intensity={1.05} />
             <hemisphereLight args={['#dbeafe', '#293445', 1.3]} />
             <directionalLight position={[10, 18, 12]} intensity={3} castShadow shadow-mapSize={[2048, 2048]} />
             <directionalLight position={[-12, 9, -8]} intensity={1.2} color="#a6c8ff" />
             <CameraBridge handle={cameraHandle} applied={applied} />
-            <Suspense fallback={null}>{modelUrl ? applied ? <UploadedBuilding url={modelUrl} visibleFloors={floors} exploded={exploded} onDimensions={handleModelDimensions} /> : <Bounds key={`${modelUrl}:${floors.map((visible) => Number(visible)).join('')}:${Number(exploded)}`} fit clip observe margin={1.3}><UploadedBuilding url={modelUrl} visibleFloors={floors} exploded={exploded} onDimensions={handleModelDimensions} /></Bounds> : <Building visibleFloors={floors} exploded={exploded} curtainWall={curtain} panelSpacing={spacing} material={material} />}</Suspense>
+            <Suspense fallback={null}>{modelUrl ? applied ? <UploadedBuilding url={modelUrl} visibleFloors={floors} exploded={exploded} edits={draftEdits} selectedNode={editable ? selectedNode?.index ?? null : null} onSelect={setSelectedNode} onDimensions={handleModelDimensions} /> : <Bounds key={`${modelUrl}:${floors.map((visible) => Number(visible)).join('')}:${Number(exploded)}`} fit clip observe margin={1.3}><UploadedBuilding url={modelUrl} visibleFloors={floors} exploded={exploded} edits={draftEdits} selectedNode={editable ? selectedNode?.index ?? null : null} onSelect={setSelectedNode} onDimensions={handleModelDimensions} /></Bounds> :<Building visibleFloors={floors} exploded={exploded} curtainWall={curtain} panelSpacing={spacing} material={material} />}</Suspense>
             <OrbitControls makeDefault target={[0, 5.2, 0]} minDistance={12} maxDistance={65} maxPolarAngle={Math.PI * 0.48} />
           </Canvas>
           <div className="cad-orientation"><b>N</b><span>▲</span><small>S</small></div>
