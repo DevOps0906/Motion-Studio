@@ -120,6 +120,7 @@ assert.ok(!exportWebsiteHtml(good).includes('href="./index.html"'));
   if(id.endsWith('/server/websites'))return {getWebsite:async()=>saved};
   if(id.endsWith('/server/store'))return {apiError:error=>Response.json({error:error.message},{status:400})};
   if(id.endsWith('/website-export'))return {exportWebsiteHtml};
+  if(id.endsWith('/lib/website'))return loadTs('lib/website.ts');
   throw Error('Unexpected dependency '+id);
  }});
  const response=await handler.exports.GET(null,{params:Promise.resolve({id:'qa-project'})});
@@ -155,8 +156,8 @@ console.log('PASS: page-specific content persistence, home inheritance, independ
 
 // task-002: testimonials/FAQ sections and per-page hero images.
 const legacyThree=validateWebsiteBrief({...good,sections:[{id:'contact',enabled:true},{id:'about',enabled:false},{id:'services',enabled:true}],pages:[{...extraPage}]});
-assert.equal(legacyThree.sections.map(s=>s.id+':'+s.enabled).join(','),'contact:true,about:false,services:true,testimonials:false,faq:false');
-assert.equal(legacyThree.pages[0].sections.length,5);assert.equal(legacyThree.pages[0].heroImageId,undefined);
+assert.equal(legacyThree.sections.map(s=>s.id+':'+s.enabled).join(','),'contact:true,about:false,services:true,testimonials:false,faq:false,gallery:false');
+assert.equal(legacyThree.pages[0].sections.length,6);assert.equal(legacyThree.pages[0].heroImageId,undefined);
 assert.equal(legacyThree.testimonials.length,0);assert.equal(legacyThree.faqHeading,'자주 묻는 질문');
 const legacyNoFields={...good};for(const key of ['sections','testimonials','testimonialsHeading','faqs','faqHeading'])delete legacyNoFields[key];
 assert.equal(validateWebsiteBrief(legacyNoFields).sections.filter(s=>s.enabled).map(s=>s.id).join(','),'services');
@@ -167,10 +168,10 @@ const reviewed=validateWebsiteBrief({...good,sections:allSections,testimonials:[
 assert.equal(reviewed.testimonials[0].quote,'최고의 경험');assert.equal(reviewed.testimonials[1].name,'');
 const badReviewInputs=[{testimonials:Array(7).fill({quote:'후기'})},{testimonials:[{quote:''}]},{testimonials:[{quote:' '}]},{testimonials:[{quote:'x'.repeat(301)}]},{testimonials:[{quote:'후기',name:'x'.repeat(301)}]},{testimonials:['문장']},{testimonials:{}},
  {faqs:Array(9).fill({question:'질문',answer:'답'})},{faqs:[{question:'질문'}]},{faqs:[{answer:'답'}]},{faqs:[{question:'x'.repeat(301),answer:'답'}]},{faqs:[{question:'질문',answer:'x'.repeat(301)}]},
- {sections:[...allSections.slice(0,4),allSections[0]]},{sections:[...allSections.slice(0,4),{id:'gallery',enabled:true}]},{sections:allSections.slice(0,4)},{sections:[...allSections,{id:'faq',enabled:true}]},
+ {sections:[...allSections.slice(0,4),allSections[0]]},{sections:[...allSections.slice(0,4),{id:'banner',enabled:true}]},{sections:allSections.slice(0,4)},{sections:[...allSections,{id:'faq',enabled:true}]},
  {sections:[allSections[0],allSections[1],allSections[4]]}];
 for(const patch of badReviewInputs)assert.throws(()=>validateWebsiteBrief({...good,...patch}),JSON.stringify(patch).slice(0,80));
-for(const sections of [[...extraPage.sections,extraPage.sections[0]],[...extraPage.sections,{id:'faq',enabled:true},{id:'faq',enabled:true}],[...extraPage.sections,{id:'gallery',enabled:true},{id:'faq',enabled:true}]])assert.throws(()=>validateWebsiteBrief({...good,pages:[{...extraPage,sections}]}));
+for(const sections of [[...extraPage.sections,extraPage.sections[0]],[...extraPage.sections,{id:'faq',enabled:true},{id:'faq',enabled:true}],[...extraPage.sections,{id:'banner',enabled:true},{id:'faq',enabled:true}]])assert.throws(()=>validateWebsiteBrief({...good,pages:[{...extraPage,sections}]}));
 const xss=exportWebsiteHtml({...good,sections:allSections,testimonialsHeading:'<b>후기</b>',testimonials:[{quote:'<script>alert(1)</script>',name:'"><img src=x>'}],faqHeading:'FAQ & 답',faqs:[{question:'<i>q</i>',answer:'a & <b>'}]});
 assert.ok(!xss.includes('<script>alert')&&!xss.includes('<img src=x')&&!xss.includes('<b>'));
 for(const value of ['&lt;b&gt;후기&lt;/b&gt;','&lt;script&gt;alert(1)&lt;/script&gt;','&quot;&gt;&lt;img src=x&gt;','FAQ &amp; 답','&lt;i&gt;q&lt;/i&gt;','a &amp; &lt;b&gt;'])assert.ok(xss.includes(value),value);
@@ -191,18 +192,21 @@ console.log('PASS: legacy 3-section compatibility, testimonial/FAQ limits and re
   if(id.endsWith('/server/websites'))return {getWebsite:async()=>imaged};
   if(id.endsWith('/server/store'))return {resolveMedia:async mediaId=>({mimeType:'image/png',file:'IMG-'+mediaId}),apiError:error=>Response.json({error:error.message},{status:400})};
   if(id.endsWith('/website-export'))return {exportWebsiteHtml};
+  if(id.endsWith('/lib/website'))return loadTs('lib/website.ts');
   throw Error('Unexpected dependency '+id);
  }});
  const response=await handler.exports.GET(null,{params:Promise.resolve({id:'qa-project'})});
  assert.equal(response.status,200);
  const {unzipSync,strFromU8}=require('fflate');
  const files=unzipSync(new Uint8Array(await response.arrayBuffer()));
- const src=id=>'src="data:image/png;base64,'+Buffer.from('IMG-'+id).toString('base64')+'"';
+ const src=id=>'src="./assets/'+id+'.png"';
  const home=strFromU8(files['index.html']),about=strFromU8(files['about.html']),plain=strFromU8(files['plain.html']);
  assert.ok(home.includes(src('home-photo'))&&!home.includes(src('page-photo')));
  assert.ok(about.includes(src('page-photo'))&&!about.includes(src('home-photo')));
  assert.ok(plain.includes(src('home-photo'))&&!plain.includes(src('page-photo')));
- console.log('PASS: ZIP export embeds each page image only in its own page and inherits the home image when empty');
+ assert.equal(Object.keys(files).sort().join(','),'README.txt,about.html,assets/home-photo.png,assets/page-photo.png,index.html,plain.html');
+ assert.ok(!home.includes('data:image'));
+ console.log('PASS: ZIP export references each page image from assets/ only in its own page and inherits the home image when empty');
 })().catch(error=>{console.error(error);process.exitCode=1;});
 
 // task-002 follow-up: page images are checked on save and protected from deletion; empty sections are not rendered.
@@ -301,4 +305,205 @@ assert.equal(websiteCtaHref({...emptyReviews,sections:[allSections[3],allSection
  const mixed=suggestPageAddress('마법 Garden',['new-page'],'new-page');
  assert.deepEqual([mixed.address,mixed.matched],['new-page',false]);
  console.log('PASS: page address suggestion (latin, Korean dictionary, unknown, duplicate, index, length)');
+}
+
+// task-007: gallery section, per-page testimonials/FAQ/gallery, public image rule, ZIP assets, section-count compatibility.
+{
+ const on = sections => sections.map(s => s.id === 'gallery' ? {...s, enabled: true} : s);
+ const six = galleryEnabled => ['about', 'services', 'contact', 'testimonials', 'faq'].map(id => ({id, enabled: true})).concat([{id: 'gallery', enabled: galleryEnabled}]);
+ const gallerySite = {...good, sections: on(good.sections), gallery: [{imageId: 'g1', caption: '  첫 장면  '}, {imageId: 'g2'}]};
+
+ // Defaults and legacy (3/5-section) data stay readable; gallery is appended hidden.
+ assert.equal(EMPTY_WEBSITE.sections.length, 6);
+ assert.equal(EMPTY_WEBSITE.sections.find(s => s.id === 'gallery').enabled, false);
+ const five = validateWebsiteBrief({...good, sections: good.sections.slice(0, 5), pages: [{...extraPage, sections: good.sections.slice(0, 5)}]});
+ assert.equal(five.sections.length, 6);assert.equal(five.sections[5].id + ':' + five.sections[5].enabled, 'gallery:false');
+ assert.equal(five.pages[0].sections.length, 6);
+ assert.equal(validateWebsiteBrief({...good, gallery: undefined}).gallery.length, 0);
+ assert.equal(validateWebsiteBrief({...good, sections: good.sections.slice(0, 3)}).sections.length, 6);
+
+ // Gallery limits, duplicates and malformed items.
+ const valid = validateWebsiteBrief(gallerySite);
+ assert.equal(JSON.stringify(valid.gallery), JSON.stringify([{imageId: 'g1', caption: '첫 장면'}, {imageId: 'g2'}]));
+ const ids = n => Array.from({length: n}, (_, i) => ({imageId: 'img-' + i}));
+ assert.equal(validateWebsiteBrief({...good, gallery: ids(12)}).gallery.length, 12);
+ assert.equal(validateWebsiteBrief({...good, gallery: [{imageId: 'g1', caption: 'x'.repeat(120)}]}).gallery[0].caption.length, 120);
+ for (const gallery of [ids(13), [{imageId: 'g1'}, {imageId: 'g1'}], [{imageId: '../secret'}], [{imageId: ''}], [{}], [{imageId: 42}], ['g1'], [null], 'g1', {imageId: 'g1'},
+   [{imageId: 'g1', caption: 'x'.repeat(121)}], [{imageId: 'g1', caption: 7}], [{imageId: 'a'.repeat(81)}]]) assert.throws(() => validateWebsiteBrief({...good, gallery}), JSON.stringify(gallery).slice(0, 60));
+ for (const sections of [[...good.sections.slice(0, 5), {id: 'gallery', enabled: 'yes'}], [...good.sections.slice(0, 5), good.sections[5], good.sections[5]], [...good.sections.slice(0, 5), {id: 'banner', enabled: true}], good.sections.slice(0, 4)]) assert.throws(() => validateWebsiteBrief({...good, sections}));
+
+ // Output: order, alt fallback, escaping, empty gallery and deleted images.
+ const src = {g1: 'data:image/png;base64,aGVsbG8=', g2: 'data:image/webp;base64,d29ybGQ='};
+ const galleryHtml = exportWebsiteHtml(valid, '', undefined, src);
+ assert.ok(galleryHtml.includes('data-website-section="gallery"'));
+ assert.ok(galleryHtml.indexOf('src="' + src.g1 + '"') < galleryHtml.indexOf('src="' + src.g2 + '"'));
+ assert.ok(galleryHtml.includes('alt="첫 장면"') && galleryHtml.includes('<figcaption>첫 장면</figcaption>'));
+ assert.ok(galleryHtml.includes('alt="ATELIER 갤러리 이미지 2"'));
+ const evil = exportWebsiteHtml(validateWebsiteBrief({...gallerySite, brand: 'A"><b>', gallery: [{imageId: 'g1', caption: '<script>alert(1)</script>"x'}, {imageId: 'g2'}]}), '', undefined, src);
+ assert.ok(!evil.includes('<script>alert') && !evil.includes('<b>') && evil.includes('&lt;script&gt;alert(1)&lt;/script&gt;&quot;x') && evil.includes('alt="A&quot;&gt;&lt;b&gt; 갤러리 이미지 2"'));
+ assert.ok(!exportWebsiteHtml(validateWebsiteBrief({...gallerySite, gallery: []})).includes('data-website-section="gallery"'));
+ assert.ok(!exportWebsiteHtml(validateWebsiteBrief({...good, gallery: [{imageId: 'g1'}]}), '', undefined, src).includes('data-website-section="gallery"'));
+ const skipped = exportWebsiteHtml(valid, '', undefined, {g2: src.g2});
+ assert.ok(!skipped.includes(src.g1) && skipped.includes(src.g2) && skipped.includes('갤러리 이미지 1'));
+ assert.ok(!exportWebsiteHtml(valid, '', undefined, {}).includes('data-website-section="gallery"'));
+ for (const bad of ['data:image/svg+xml;base64,PHN2Zz4=', 'javascript:alert(1)', '/api/media/g1', 'https://example.com/a.png', './assets/../x.png', './assets/g1.svg']) assert.throws(() => exportWebsiteHtml(valid, '', undefined, {g1: bad, g2: src.g2}));
+ assert.ok(exportWebsiteHtml(valid, '', undefined, {g1: './assets/g1.png', g2: './assets/g2.jpg'}).includes('src="./assets/g2.jpg"'));
+ assert.equal(websiteCtaHref(validateWebsiteBrief({...good, sections: [{id: 'gallery', enabled: true}, {id: 'services', enabled: true}, {id: 'about', enabled: true}, {id: 'contact', enabled: false}, {id: 'testimonials', enabled: false}, {id: 'faq', enabled: false}], gallery: [{imageId: 'g1'}]})), '#website-services');
+
+ // Per-page testimonials/FAQ/gallery: inherit unless the page content has its own key; legacy content keeps working untouched.
+ const {websiteGalleryImageIds, visibleGallery, dropEmptyReviewItems} = loadTs('lib/website.ts');
+ const homeReviews = {...good, testimonials: [{quote: '홈 후기', name: ''}], faqs: [{question: '홈 질문', answer: '홈 답'}], testimonialsHeading: '홈 후기 제목', faqHeading: '홈 FAQ 제목', sections: good.sections.map(s => ({...s, enabled: true}))};
+ const legacyContentPage = {...extraPage, sections: six(true), content: customContent};
+ const reviewSite = validateWebsiteBrief({...homeReviews, pages: [legacyContentPage]});
+ const savedContent = reviewSite.pages[0].content;
+ for (const key of ['testimonials', 'faqs', 'gallery', 'testimonialsHeading', 'faqHeading']) assert.equal(key in savedContent, false, key);
+ const inheritedReviews = resolveWebsitePage(reviewSite, reviewSite.pages[0]);
+ assert.equal(inheritedReviews.testimonials[0].quote, '홈 후기');assert.equal(inheritedReviews.faqs[0].question, '홈 질문');assert.equal(inheritedReviews.faqHeading, '홈 FAQ 제목');
+ const legacyHtml = exportWebsiteHtml(reviewSite, '', reviewSite.pages[0]);
+ assert.ok(legacyHtml.includes('홈 후기') && legacyHtml.includes('홈 질문') && legacyHtml.includes('홈 FAQ 제목'));
+ const ownContent = {...customContent, testimonialsHeading: '페이지 후기', testimonials: [{quote: '페이지 후기 내용', name: '나'}], faqHeading: '페이지 FAQ', faqs: [{question: '페이지 질문', answer: '페이지 답'}], gallery: [{imageId: 'p1', caption: '페이지 사진'}]};
+ const ownSite = validateWebsiteBrief({...homeReviews, pages: [{...extraPage, sections: six(true), content: ownContent}]});
+ const ownPage = resolveWebsitePage(ownSite, ownSite.pages[0]);
+ assert.equal(ownPage.testimonials.length, 1);assert.equal(ownPage.faqHeading, '페이지 FAQ');assert.equal(ownPage.gallery[0].imageId, 'p1');
+ const ownHtml = exportWebsiteHtml(ownSite, '', ownSite.pages[0], {p1: src.g1});
+ assert.ok(ownHtml.includes('페이지 후기 내용') && ownHtml.includes('페이지 질문') && ownHtml.includes('페이지 사진') && !ownHtml.includes('홈 후기') && !ownHtml.includes('홈 질문'));
+ assert.ok(exportWebsiteHtml(ownSite).includes('홈 후기') && !exportWebsiteHtml(ownSite).includes('페이지 후기 내용'));
+ const emptyOwn = validateWebsiteBrief({...homeReviews, pages: [{...extraPage, sections: six(true), content: {...customContent, testimonials: [], faqs: []}}]});
+ assert.equal(resolveWebsitePage(emptyOwn, emptyOwn.pages[0]).testimonials.length, 0);
+ assert.ok(!exportWebsiteHtml(emptyOwn, '', emptyOwn.pages[0]).includes('data-website-section="testimonials"'));
+ const pageBad = patch => ({...homeReviews, pages: [{...extraPage, sections: six(true), content: {...customContent, ...patch}}]});
+ for (const patch of [{testimonials: Array(7).fill({quote: '후기'})}, {testimonials: [{quote: ''}]}, {faqs: Array(9).fill({question: 'q', answer: 'a'})}, {faqs: [{question: 'q'}]}, {faqs: 'x'},
+   {gallery: ids(13)}, {gallery: [{imageId: 'g1'}, {imageId: 'g1'}]}, {gallery: [{imageId: '../x'}]}, {gallery: [{imageId: 'g1', caption: 'x'.repeat(121)}]}, {testimonialsHeading: 'x'.repeat(121)}, {faqHeading: 7}]) assert.throws(() => validateWebsiteBrief(pageBad(patch)), JSON.stringify(patch).slice(0, 60));
+ assert.equal(validateWebsiteBrief(pageBad({gallery: ids(12)})).pages[0].content.gallery.length, 12);
+ const cleanedPages = dropEmptyReviewItems({...homeReviews, pages: [{...extraPage, sections: six(true), content: {...customContent, testimonials: [{quote: ' ', name: 'x'}, {quote: '남김', name: ''}], faqs: [{question: '', answer: ''}, {question: 'q', answer: 'a'}]}}]});
+ assert.equal(cleanedPages.pages[0].content.testimonials.map(item => item.quote).join(','), '남김');assert.equal(cleanedPages.pages[0].content.faqs.length, 1);
+ assert.equal('testimonials' in dropEmptyReviewItems(reviewSite).pages[0].content, false);
+
+ // One resolver feeds preview, export and the public-media rule.
+ const resolverSite = validateWebsiteBrief({...good, sections: on(good.sections), gallery: [{imageId: 'g1'}], pages: [
+  {...extraPage, id: 'unused', sections: six(false), content: {...customContent, gallery: [{imageId: 'unused-img'}]}},
+  {...extraPage, id: 'inherit', sections: six(true)},
+  {...extraPage, id: 'own', sections: six(true), content: {...customContent, gallery: [{imageId: 'own-img'}]}},
+  {...extraPage, id: 'legacy', sections: six(true), content: customContent}]});
+ assert.equal(JSON.stringify(websiteGalleryImageIds(resolverSite).sort()), JSON.stringify(['g1', 'own-img']));
+ assert.equal(websiteGalleryImageIds(validateWebsiteBrief({...good, gallery: [{imageId: 'g1'}]})).length, 0);
+ assert.equal(visibleGallery(resolveWebsitePage(resolverSite), new Set()).length, 0);
+ console.log('PASS: gallery section defaults/legacy compatibility, limits, escaped output, per-page review/FAQ/gallery inheritance and shared resolver');
+}
+
+(async () => {
+ const os = require('node:os'), pathMod = require('node:path');
+ const {websiteGalleryImageIds} = loadTs('lib/website.ts');
+ const six = galleryEnabled => ['about', 'services', 'contact', 'testimonials', 'faq'].map(id => ({id, enabled: true})).concat([{id: 'gallery', enabled: galleryEnabled}]);
+ const root = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'website-gallery-'));
+ const directory = pathMod.join(root, '.local-data', 'websites');
+ fs.mkdirSync(directory, {recursive: true});
+ const write = (name, site) => fs.writeFileSync(pathMod.join(directory, name + '.json'), JSON.stringify(site));
+ try {
+  // Stored 5-section files (before gallery) must open through getWebsite and the list.
+  const legacy5 = {...good, id: 'legacy5', schemaVersion: 1, templateId: 'brand-landing-v1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-02T00:00:00.000Z', sections: good.sections.slice(0, 5), pages: [{...extraPage, sections: good.sections.slice(0, 5)}]};
+  delete legacy5.gallery;
+  const store = {DATA: pathMod.join(root, '.local-data'), readJson: async file => JSON.parse(fs.readFileSync(file, 'utf8')), listJson: async dir => fs.readdirSync(dir).map(name => JSON.parse(fs.readFileSync(pathMod.join(dir, name), 'utf8'))), writeJson: async () => {}, listMedia: async () => []};
+  const websites = {exports: {}};
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/server/websites.ts', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true}}).outputText, {module: websites, exports: websites.exports, require: id => {
+   if (id === 'server-only') return {};
+   if (id.startsWith('node:')) return require(id);
+   if (id === './store') return store;
+   if (id === '../website') return loadTs('lib/website.ts');
+   throw Error('Unexpected dependency ' + id);
+  }});
+  write('legacy5', legacy5);
+  const opened = await websites.exports.getWebsite('legacy5');
+  assert.equal(opened.sections.length, 6);assert.equal(opened.pages[0].sections.length, 6);assert.equal(opened.gallery.length, 0);
+  const listed = await websites.exports.listWebsites();
+  assert.equal(listed.length, 1);assert.equal(listed[0].sections.length, 6);assert.equal(listed[0].pages[0].sections.length, 6);
+  fs.rmSync(pathMod.join(directory, 'legacy5.json'));
+
+  // Public-media rule: only images shown by an enabled gallery (same resolver as the screen) plus covers.
+  const policy = {exports: {}};
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/access-policy.ts', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true}}).outputText, {module: policy, exports: policy.exports, process: {cwd: () => root}, require: id => {
+   if (id.startsWith('node:')) return require(id);
+   if (id === './website') return loadTs('lib/website.ts');
+   throw Error('Unexpected dependency ' + id);
+  }});
+  const isPublic = policy.exports.isWebsiteCoverImage;
+  const pageUnused = {...extraPage, id: 'unused', sections: six(false), content: {...customContent, gallery: [{imageId: 'unused-img'}]}};
+  const pageInherit = {...extraPage, id: 'inherit', sections: six(true)};
+  const pageOwn = {...extraPage, id: 'own', sections: six(true), content: {...customContent, gallery: [{imageId: 'own-img'}]}};
+  const site = validateWebsiteBrief({...good, heroImageId: 'hero1', gallery: [{imageId: 'g1'}], sections: good.sections.map(s => s.id === 'gallery' ? {...s, enabled: true} : s), pages: [pageUnused, pageInherit, pageOwn]});
+  write('site', site);
+  write('off', validateWebsiteBrief({...good, gallery: [{imageId: 'off-img'}], pages: [{...extraPage, id: 'x', sections: six(false), content: {...customContent, gallery: [{imageId: 'off-page-img'}]}}]}));
+  write('broken', {sections: 'nope', gallery: [{imageId: 'broken-img'}]});
+  for (const id of ['hero1', 'g1', 'own-img']) assert.equal(await isPublic(id), true, id);
+  for (const id of ['unused-img', 'off-img', 'off-page-img', 'broken-img', 'other', '../secret', '', 'g1/../x']) assert.equal(await isPublic(id), false, id);
+  write('site', {...site, sections: site.sections.map(s => s.id === 'gallery' ? {...s, enabled: false} : s)});
+  assert.equal(await isPublic('g1'), true, 'g1 is still shown by the inheriting page');
+  write('site', {...site, sections: site.sections.map(s => s.id === 'gallery' ? {...s, enabled: false} : s), pages: [pageUnused, {...pageInherit, sections: six(false)}, {...pageOwn, sections: six(false)}]});
+  assert.equal(await isPublic('g1'), false);assert.equal(await isPublic('own-img'), false);assert.equal(await isPublic('hero1'), true);
+  fs.rmSync(pathMod.join(directory, 'site.json'));
+  assert.equal(await isPublic('hero1'), false);
+  console.log('PASS: public media rule serves enabled-gallery images (home, inherited, page-specific) and covers only, with no stale cache');
+
+  // Export route: images are stored once under assets/ in the ZIP, single HTML inlines them, size cap, deleted gallery images skipped.
+  const exporter = async (project, sizeOf) => {
+   const handler = {exports: {}};
+   vm.runInNewContext(ts.transpileModule(fs.readFileSync('app/api/websites/[id]/export/route.ts', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText, {module: handler, exports: handler.exports, Response, require: id => {
+    if (id === 'node:fs') return {promises: {stat: async file => { if (file === 'IMG-nofile') throw Object.assign(Error('ENOENT'), {code: 'ENOENT'}); return {size: sizeOf}; }, readFile: async file => Buffer.from(file)}};
+    if (id === 'fflate') return require('fflate');
+    if (id.endsWith('/server/websites')) return {getWebsite: async () => project};
+    if (id.endsWith('/server/store')) return {resolveMedia: async mediaId => { if (mediaId === 'gone') throw Error('없는 미디어'); return {mimeType: 'image/png', file: 'IMG-' + mediaId}; }, apiError: (error, status = 400) => Response.json({error: error.message}, {status})};
+    if (id.endsWith('/website-export')) return {exportWebsiteHtml};
+    if (id.endsWith('/lib/website')) return loadTs('lib/website.ts');
+    throw Error('Unexpected dependency ' + id);
+   }});
+   return handler.exports.GET(null, {params: Promise.resolve({id: 'qa-gallery'})});
+  };
+  const zipped = validateWebsiteBrief({...good, heroImageId: 'home-photo', gallery: [{imageId: 'g1', caption: '하나'}, {imageId: 'gone'}, {imageId: 'g2'}], sections: good.sections.map(s => s.id === 'gallery' ? {...s, enabled: true} : s), pages: [
+   {...extraPage, id: 'inherit', sections: six(true), heroImageId: 'page-photo'}, {...extraPage, id: 'own', sections: six(true), content: {...customContent, gallery: [{imageId: 'g2'}, {imageId: 'g3'}]}}, {...extraPage, id: 'plain', sections: six(false)}]});
+  const {unzipSync, strFromU8} = require('fflate');
+  const response = await exporter(zipped, 5);
+  assert.equal(response.status, 200);
+  const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+  assert.equal(Object.keys(files).sort().join(','), 'README.txt,assets/g1.png,assets/g2.png,assets/g3.png,assets/home-photo.png,assets/page-photo.png,index.html,inherit.html,own.html,plain.html');
+  const page = name => strFromU8(files[name]);
+  for (const name of ['index.html', 'inherit.html', 'own.html', 'plain.html']) assert.ok(!page(name).includes('data:image'), name + ' must not repeat data URLs');
+  assert.ok(page('index.html').includes('src="./assets/home-photo.png"') && page('inherit.html').includes('src="./assets/page-photo.png"'));
+  assert.ok(page('index.html').includes('src="./assets/g1.png"') && page('index.html').includes('src="./assets/g2.png"') && !page('index.html').includes('g3.png') && !page('index.html').includes('gone'));
+  assert.ok(page('index.html').indexOf('./assets/g1.png') < page('index.html').indexOf('./assets/g2.png') && page('index.html').includes('alt="하나"') && page('index.html').includes('ATELIER 갤러리 이미지 2'));
+  assert.ok(page('inherit.html').includes('./assets/g1.png') && page('own.html').includes('./assets/g3.png') && !page('own.html').includes('./assets/g1.png'));
+  assert.ok(!page('plain.html').includes('data-website-section="gallery"'));
+  assert.equal(Buffer.from(files['assets/g1.png']).toString(), 'IMG-g1');
+  const single = await exporter(validateWebsiteBrief({...good, gallery: [{imageId: 'g1'}, {imageId: 'gone'}], sections: good.sections.map(s => s.id === 'gallery' ? {...s, enabled: true} : s)}), 5);
+  assert.equal(single.headers.get('content-type'), 'text/html; charset=utf-8');
+  const singleHtml = await single.text();
+  assert.ok(singleHtml.includes('src="data:image/png;base64,' + Buffer.from('IMG-g1').toString('base64') + '"') && !singleHtml.includes('assets/') && !singleHtml.includes('gone'));
+  const missingFile = await exporter(validateWebsiteBrief({...good, gallery: [{imageId: 'g1'}, {imageId: 'nofile'}], sections: good.sections.map(s => s.id === 'gallery' ? {...s, enabled: true} : s), pages: [{...extraPage, id: 'inherit', sections: six(true)}]}), 5);
+  assert.equal(missingFile.status, 200);
+  assert.ok(!Object.keys(unzipSync(new Uint8Array(await missingFile.arrayBuffer()))).some(name => name.includes('nofile')));
+  const big = await exporter(zipped, 13 * 1024 ** 2);
+  assert.equal(big.status, 400);
+  assert.equal((await big.json()).error, '이미지 합계가 60MB를 넘어 내보낼 수 없습니다. 갤러리 이미지를 줄여 주세요.');
+  const justUnder = await exporter(zipped, 11 * 1024 ** 2);
+  assert.equal(justUnder.status, 200);
+  console.log('PASS: ZIP stores each image once under assets/, single HTML inlines images, 60MB cap returns 400, deleted gallery images skipped');
+ } finally { fs.rmSync(root, {recursive: true, force: true}); }
+})().catch(error => {console.error(error);process.exitCode = 1;});
+
+// task-007: preview shows the same gallery as the export and skips deleted media.
+{
+ const React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),pathMod=require('node:path');
+ const compiled=ts.transpileModule(fs.readFileSync('components/WebsitePreview.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+ const preview={exports:{}};
+ vm.runInNewContext(compiled,{module:preview,exports:preview.exports,require:id=>id.startsWith('react')?require(id):id==='./WebsiteInquiryForm'?{default:()=>null}:loadTs(pathMod.join('components',id+'.ts'))});
+ const site=validateWebsiteBrief({...good,sections:good.sections.map(s=>s.id==='gallery'?{...s,enabled:true}:s),gallery:[{imageId:'g1',caption:'<b>하나</b>'},{imageId:'gone'},{imageId:'g2'}]});
+ const markup=(brief,mediaIds)=>renderToStaticMarkup(React.createElement(preview.exports.default,{brief,mediaIds}));
+ const all=markup(site);
+ assert.ok(all.indexOf('/api/media/g1')<all.indexOf('/api/media/gone')&&all.indexOf('/api/media/gone')<all.indexOf('/api/media/g2'));
+ assert.ok(all.includes('&lt;b&gt;하나&lt;/b&gt;')&&!all.includes('<b>하나'));
+ const filtered=markup(site,['g1','g2']);
+ assert.ok(!filtered.includes('/api/media/gone')&&filtered.includes('ATELIER 갤러리 이미지 2'));
+ assert.ok(!markup(site,[]).includes('data-website-section="gallery"'));
+ assert.ok(!markup({...site,gallery:[]}).includes('data-website-section="gallery"'));
+ assert.ok(!markup({...site,sections:site.sections.map(s=>({...s,enabled:s.id!=='gallery'}))}).includes('data-website-section="gallery"'));
+ console.log('PASS: preview renders the enabled gallery in order with escaping, skips deleted media and hides empty/disabled galleries');
 }

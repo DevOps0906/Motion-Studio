@@ -1,17 +1,19 @@
 import {validateProductionBrief,type WebsiteProductionBrief} from './website-production';
-export const WEBSITE_SECTION_LABELS = {about: '브랜드 소개', services: '서비스', contact: '문의 안내', testimonials: '고객 후기', faq: '자주 묻는 질문'} as const;
+export const WEBSITE_SECTION_LABELS = {about: '브랜드 소개', services: '서비스', contact: '문의 안내', testimonials: '고객 후기', faq: '자주 묻는 질문', gallery: '갤러리'} as const;
 export type WebsiteSectionId = keyof typeof WEBSITE_SECTION_LABELS;
 export type WebsiteSection = {id: WebsiteSectionId; enabled: boolean};
-export type WebsitePageContent = Pick<WebsiteBrief,'aboutHeading'|'aboutBody'|'services'|'contactHeading'|'contactText'|'contactUrl'|'ctaLabel'>;
+export type WebsiteGalleryItem = {imageId: string; caption?: string};
+// Testimonials/FAQ/gallery keys are optional: a missing key means the page follows the home value.
+export type WebsitePageContent = Pick<WebsiteBrief,'aboutHeading'|'aboutBody'|'services'|'contactHeading'|'contactText'|'contactUrl'|'ctaLabel'> & Partial<Pick<WebsiteBrief,'testimonialsHeading'|'testimonials'|'faqHeading'|'faqs'|'gallery'>>;
 export type WebsiteTestimonial = {quote: string; name: string};
 export type WebsiteFaq = {question: string; answer: string};
 export type WebsitePage = {content?:WebsitePageContent;heroImageId?:string;id: string; title: string; headline: string; description: string; sections: WebsiteSection[]};
 export const DEFAULT_WEBSITE_SECTIONS: WebsiteSection[] = [
   {id: 'about', enabled: true}, {id: 'services', enabled: true}, {id: 'contact', enabled: true},
-  {id: 'testimonials', enabled: false}, {id: 'faq', enabled: false},
+  {id: 'testimonials', enabled: false}, {id: 'faq', enabled: false}, {id: 'gallery', enabled: false},
 ];
 // Sections added after the first release; stored 3-section data is completed with these hidden.
-const ADDED_SECTION_IDS: WebsiteSectionId[] = ['testimonials', 'faq'];
+const ADDED_SECTION_IDS: WebsiteSectionId[] = ['testimonials', 'faq', 'gallery'];
 function withAddedSections(sections: WebsiteSection[]) {
   return [...sections, ...ADDED_SECTION_IDS.filter(id => !sections.some(section => section.id === id)).map(id => ({id, enabled: false}))];
 }
@@ -48,6 +50,7 @@ export type WebsiteBrief = {
   testimonials: WebsiteTestimonial[];
   faqHeading: string;
   faqs: WebsiteFaq[];
+  gallery: WebsiteGalleryItem[];
   designPreset: 'studio' | 'editorial' | 'gallery';
   referenceTitle: string;
   pages: WebsitePage[];
@@ -68,7 +71,7 @@ export const EMPTY_WEBSITE: WebsiteBrief = {
   accent: '#c4b5fd', theme: 'dark', heroImageId: '',
   sections: DEFAULT_WEBSITE_SECTIONS.map(section => ({...section})),
   aboutHeading: '우리의 이야기', aboutBody: '', contactHeading: '함께 다음 장면을 만드세요.', contactText: '', contactUrl: '',
-  testimonialsHeading: '고객 후기', testimonials: [], faqHeading: '자주 묻는 질문', faqs: [],
+  testimonialsHeading: '고객 후기', testimonials: [], faqHeading: '자주 묻는 질문', faqs: [], gallery: [],
   designPreset: 'studio', referenceTitle: '', designKit: 'original',
   pages: [], inquiryForm: false,
 };
@@ -82,10 +85,39 @@ export function safeWebsiteLink(value: string) {
 
 export function websiteCtaHref(brief: WebsiteBrief) {
   // Empty testimonial/FAQ sections are not rendered, so they cannot be CTA targets.
-  const visible = brief.sections.filter(section => section.enabled && !(section.id === 'testimonials' && !brief.testimonials.length) && !(section.id === 'faq' && !brief.faqs.length));
+  // The gallery is not a CTA target either.
+  const visible = brief.sections.filter(section => section.enabled && section.id !== 'gallery' && !(section.id === 'testimonials' && !brief.testimonials.length) && !(section.id === 'faq' && !brief.faqs.length));
   const contact = safeWebsiteLink(brief.contactUrl);
   return visible.some(section => section.id === 'contact') && contact
     ? contact : visible.length ? `#website-${visible[0].id}` : '';
+}
+
+const IMAGE_ID = /^[a-zA-Z0-9-]{1,80}$/;
+function reviewList(value: unknown, max: number, message: string) {
+  const list = value === undefined ? [] : value;
+  if (!Array.isArray(list) || list.length > max || list.some(item => !item || typeof item !== 'object' || Array.isArray(item))) throw new Error(message);
+  return list as Record<string, unknown>[];
+}
+function itemText(value: unknown, required: boolean, label: string, max = 300) {
+  if (value === undefined && !required) return '';
+  if (typeof value !== 'string' || value.length > max || (required && !value.trim())) throw new Error(`${label}: 내용을 ${max}자 이하로 입력해 주세요.`);
+  return value.trim();
+}
+function parseTestimonials(value: unknown): WebsiteTestimonial[] {
+  return reviewList(value, 6, '고객 후기는 최대 6개까지 입력할 수 있습니다.').map(item => ({quote: itemText(item.quote, true, '후기 내용'), name: itemText(item.name, false, '후기 작성자')}));
+}
+function parseFaqs(value: unknown): WebsiteFaq[] {
+  return reviewList(value, 8, '자주 묻는 질문은 최대 8개까지 입력할 수 있습니다.').map(item => ({question: itemText(item.question, true, '질문'), answer: itemText(item.answer, true, '답변')}));
+}
+function parseGallery(value: unknown): WebsiteGalleryItem[] {
+  const seen = new Set<string>();
+  return reviewList(value, 12, '갤러리 이미지는 최대 12장까지 선택할 수 있습니다.').map((item): WebsiteGalleryItem => {
+    if (typeof item.imageId !== 'string' || !IMAGE_ID.test(item.imageId)) throw new Error('갤러리 이미지 ID가 올바르지 않습니다.');
+    if (seen.has(item.imageId)) throw new Error('같은 이미지를 갤러리에 두 번 넣을 수 없습니다.');
+    seen.add(item.imageId);
+    const caption = itemText(item.caption, false, '갤러리 설명', 120);
+    return {imageId: item.imageId, ...(caption ? {caption} : {})};
+  });
 }
 
 export function validateWebsiteBrief(input: unknown): WebsiteBrief {
@@ -128,7 +160,7 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
     const pageHeadline = typeof page.headline === 'string' ? page.headline.trim() : '';
     const pageDescription = typeof page.description === 'string' ? page.description.trim() : '';
     if (!title || title.length > 80 || !pageHeadline || pageHeadline.length > 160 || pageDescription.length > 1200) throw new Error('페이지 이름·제목·소개 길이를 확인해 주세요.');
-    if (!Array.isArray(page.sections) || (page.sections.length !== 3 && page.sections.length !== SECTION_COUNT)) throw new Error('페이지 섹션 구성을 확인해 주세요.');
+    if (!Array.isArray(page.sections) || (page.sections.length !== 3 && page.sections.length !== 5 && page.sections.length !== SECTION_COUNT)) throw new Error('페이지 섹션 구성을 확인해 주세요.');
     const sections = page.sections.map((section): WebsiteSection => {
       if (!section || typeof section !== 'object' || Array.isArray(section)) throw new Error('페이지 섹션 정보를 확인해 주세요.');
       const value = section as Record<string, unknown>;
@@ -149,7 +181,13 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
       if(!Array.isArray(services)||services.length<1||services.length>6||services.some(value=>typeof value!=='string'||!value.trim()||value.length>100))throw new Error('페이지 서비스는 1~6개, 항목별 100자 이하로 입력해 주세요.');
       const contactUrl=field('contactUrl',2000);
       if(contactUrl&&!safeWebsiteLink(contactUrl))throw new Error('페이지 문의 링크는 인증 정보 없는 http 또는 https 주소로 입력해 주세요.');
-      content={aboutHeading:field('aboutHeading',120),aboutBody:field('aboutBody',1200),services:services.map(value=>(value as string).trim()),contactHeading:field('contactHeading',120),contactText:field('contactText',1200),contactUrl,ctaLabel:field('ctaLabel',40,true)};
+      const optional:Partial<WebsitePageContent>={};
+      const heading=(key:'testimonialsHeading'|'faqHeading')=>{const value=raw[key];if(value===undefined)return;if(typeof value!=='string'||value.length>120)throw new Error('페이지 후기·FAQ 제목은 120자 이하로 입력해 주세요.');optional[key]=value.trim();};
+      heading('testimonialsHeading');heading('faqHeading');
+      if(raw.testimonials!==undefined)optional.testimonials=parseTestimonials(raw.testimonials);
+      if(raw.faqs!==undefined)optional.faqs=parseFaqs(raw.faqs);
+      if(raw.gallery!==undefined)optional.gallery=parseGallery(raw.gallery);
+      content={aboutHeading:field('aboutHeading',120),aboutBody:field('aboutBody',1200),services:services.map(value=>(value as string).trim()),contactHeading:field('contactHeading',120),contactText:field('contactText',1200),contactUrl,ctaLabel:field('ctaLabel',40,true),...optional};
     }
     return {id, title, headline: pageHeadline, description: pageDescription, sections: pageSections, ...(pageImageId?{heroImageId: pageImageId}:{}), ...(content?{content}:{})};
   });
@@ -168,7 +206,7 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   if (heroImageId && !/^[a-zA-Z0-9-]{1,80}$/.test(heroImageId)) throw new Error('이미지 ID가 올바르지 않습니다.');
   if (!Array.isArray(data.services) || data.services.length < 1 || data.services.length > 6 || data.services.some(s => typeof s !== 'string' || !s.trim() || s.length > 100)) throw new Error('서비스는 1~6개, 항목별 100자 이하로 입력해 주세요.');
   const rawSections = data.sections === undefined ? LEGACY_SECTIONS : data.sections;
-  if (!Array.isArray(rawSections) || (rawSections.length !== 3 && rawSections.length !== SECTION_COUNT)) throw new Error('소개·서비스·문의 섹션 구성을 확인해 주세요.');
+  if (!Array.isArray(rawSections) || (rawSections.length !== 3 && rawSections.length !== 5 && rawSections.length !== SECTION_COUNT)) throw new Error('소개·서비스·문의 섹션 구성을 확인해 주세요.');
   const seen = new Set<string>();
   const givenSections = rawSections.map((section: unknown): WebsiteSection => {
     if (!section || typeof section !== 'object' || Array.isArray(section)) throw new Error('잘못된 섹션입니다.');
@@ -181,28 +219,22 @@ export function validateWebsiteBrief(input: unknown): WebsiteBrief {
   if (sections.length !== SECTION_COUNT) throw new Error('소개·서비스·문의 섹션 구성을 확인해 주세요.');
   const testimonialsHeading = optionalText('testimonialsHeading', 120, '고객 후기');
   const faqHeading = optionalText('faqHeading', 120, '자주 묻는 질문');
-  function items(key: string, max: number, message: string) {
-    const value = data[key] === undefined ? [] : data[key];
-    if (!Array.isArray(value) || value.length > max || value.some(item => !item || typeof item !== 'object' || Array.isArray(item))) throw new Error(message);
-    return value as Record<string, unknown>[];
-  }
-  function itemText(value: unknown, required: boolean, label: string) {
-    if (value === undefined && !required) return '';
-    if (typeof value !== 'string' || value.length > 300 || (required && !value.trim())) throw new Error(`${label}: 내용을 300자 이하로 입력해 주세요.`);
-    return value.trim();
-  }
-  const testimonials = items('testimonials', 6, '고객 후기는 최대 6개까지 입력할 수 있습니다.').map(item => ({quote: itemText(item.quote, true, '후기 내용'), name: itemText(item.name, false, '후기 작성자')}));
+  const testimonials = parseTestimonials(data.testimonials);
   if (data.inquiryForm !== undefined && typeof data.inquiryForm !== 'boolean') throw new Error('문의 폼 사용 여부를 확인해 주세요.');
   const inquiryForm = data.inquiryForm === true;
-  const faqs = items('faqs', 8, '자주 묻는 질문은 최대 8개까지 입력할 수 있습니다.').map(item => ({question: itemText(item.question, true, '질문'), answer: itemText(item.answer, true, '답변')}));
+  const faqs = parseFaqs(data.faqs), gallery = parseGallery(data.gallery);
   return {title, brand, headline, description, audience, referenceUrl, ctaLabel, accent,
     theme: data.theme, heroImageId, services: data.services.map(s => (s as string).trim()),
-    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, testimonialsHeading, testimonials, faqHeading, faqs, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief), pages, inquiryForm};
+    sections, aboutHeading, aboutBody, contactHeading, contactText, contactUrl, testimonialsHeading, testimonials, faqHeading, faqs, gallery, designPreset: designPreset as WebsiteBrief['designPreset'], referenceTitle, designKit: designKit as WebsiteBrief['designKit'], productionBrief: validateProductionBrief(data.productionBrief), pages, inquiryForm};
 }
 
 // Blank review rows are editor scratch space; drop them before strict validation on save.
 export function dropEmptyReviewItems(brief:WebsiteBrief):WebsiteBrief {
-  return {...brief,testimonials:brief.testimonials.filter(item=>item.quote.trim()),faqs:brief.faqs.filter(item=>item.question.trim()||item.answer.trim())};
+  const quotes=(items:WebsiteTestimonial[])=>items.filter(item=>item.quote.trim()),questions=(items:WebsiteFaq[])=>items.filter(item=>item.question.trim()||item.answer.trim());
+  return {...brief,testimonials:quotes(brief.testimonials),faqs:questions(brief.faqs),pages:brief.pages.map(page=>{
+    const content=page.content;
+    return content?{...page,content:{...content,...(content.testimonials?{testimonials:quotes(content.testimonials)}:{}),...(content.faqs?{faqs:questions(content.faqs)}:{})}}:page;
+  })};
 }
 // Testimonial/FAQ text is shared, so its fields matter when any page shows the section.
 export function websiteSectionUsed(brief:WebsiteBrief,id:WebsiteSectionId) {
@@ -212,4 +244,17 @@ export function websiteSectionUsed(brief:WebsiteBrief,id:WebsiteSectionId) {
 // One page projection shared by the editor preview and the downloadable site.
 export function resolveWebsitePage(brief:WebsiteBrief,page?:WebsitePage):WebsiteBrief {
   return page?{...brief,...page.content,heroImageId:page.heroImageId||brief.heroImageId,title:page.title,headline:page.headline,description:page.description,sections:page.sections}:brief;
+}
+
+// Gallery images shown on one page: only when its gallery section is on, in saved order.
+// `available` (media ids that still exist) drops deleted images; alt text falls back to a numbered label.
+export function visibleGallery(current:WebsiteBrief,available?:ReadonlySet<string>) {
+  if(!current.sections.some(section=>section.id==='gallery'&&section.enabled))return [];
+  return (current.gallery||[]).filter(item=>!available||available.has(item.imageId)).map((item,index)=>({imageId:item.imageId,caption:item.caption||'',alt:item.caption||`${current.brand||'브랜드'} 갤러리 이미지 ${index+1}`}));
+}
+// Single source for "which gallery images are in use": preview, export and the public-media rule all call this.
+export function websiteGalleryImageIds(brief:WebsiteBrief) {
+  const ids=new Set<string>();
+  for(const page of [undefined,...brief.pages])for(const item of visibleGallery(resolveWebsitePage(brief,page)))ids.add(item.imageId);
+  return Array.from(ids);
 }

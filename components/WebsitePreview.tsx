@@ -1,11 +1,13 @@
 'use client';
 import type {CSSProperties} from 'react';
-import {resolveWebsitePage, websiteCtaHref, safeWebsiteLink, type WebsiteBrief, type WebsitePage} from '../lib/website';
+import {resolveWebsitePage, visibleGallery, websiteCtaHref, safeWebsiteLink, type WebsiteBrief, type WebsitePage} from '../lib/website';
 import {WEBSITE_PREVIEW_CSS} from '../lib/website-styles';
 import WebsiteInquiryForm from './WebsiteInquiryForm';
 
-export default function WebsitePreview({brief,page,onNavigate,previewBase,websiteId}: {brief: WebsiteBrief;page?:WebsitePage;onNavigate?:(id:string)=>void;previewBase?:string;websiteId?:string}) {
+// mediaIds: images that still exist; gallery images missing from it are skipped (no list = show all).
+export default function WebsitePreview({brief,page,onNavigate,previewBase,websiteId,mediaIds}: {brief: WebsiteBrief;page?:WebsitePage;onNavigate?:(id:string)=>void;previewBase?:string;websiteId?:string;mediaIds?:string[]}) {
   const current = resolveWebsitePage(brief,page);
+  const gallery = visibleGallery(current, mediaIds ? new Set(mediaIds) : undefined);
   const ctaHref = websiteCtaHref(current);
   const contactHref = safeWebsiteLink(current.contactUrl);
   return <article className={`website-preview website-theme-${current.theme} website-design-${current.designPreset} website-kit-${current.designKit || 'original'}`} style={{'--site-accent': current.accent} as CSSProperties}>
@@ -26,6 +28,8 @@ export default function WebsitePreview({brief,page,onNavigate,previewBase,websit
         <div className="website-service-grid">{current.testimonials.map((item, i) => <article key={i}><p>{item.quote}</p>{item.name && <span>{item.name}</span>}</article>)}</div></section>;
       if (section.id === 'faq') return !current.faqs.length ? null : <section key={section.id} id="website-faq" className="website-content-section" data-website-section="faq"><div className="website-eyebrow">FAQ</div><h2>{current.faqHeading || '자주 묻는 질문'}</h2>
         <dl className="website-faq-list">{current.faqs.map((item, i) => <div key={i}><dt>{item.question}</dt><dd>{item.answer}</dd></div>)}</dl></section>;
+      if (section.id === 'gallery') return !gallery.length ? null : <section key={section.id} id="website-gallery" className="website-content-section website-gallery" data-website-section="gallery"><div className="website-eyebrow">GALLERY</div><h2>갤러리</h2>
+        <ul className="website-gallery-grid">{gallery.map(item => <li key={item.imageId}><figure><img src={`/api/media/${encodeURIComponent(item.imageId)}`} alt={item.alt} loading="lazy"/>{item.caption && <figcaption>{item.caption}</figcaption>}</figure></li>)}</ul></section>;
       if (section.id === 'contact') return <section key={section.id} id="website-contact" className="website-content-section website-contact" data-website-section="contact"><div className="website-eyebrow">NEXT CHAPTER</div><h2>{current.contactHeading || '함께 다음 장면을 만드세요.'}</h2>{current.contactText && <p>{current.contactText}</p>}{contactHref && <a className="website-cta" href={contactHref}>{current.ctaLabel || '브랜드 알아보기'} <span aria-hidden="true">↗</span></a>}{current.inquiryForm && <WebsiteInquiryForm websiteId={websiteId}/>}</section>;
       return <section key={section.id} id="website-services" className="website-services" data-website-section="services"><div className="website-eyebrow">WHAT WE DO</div><h2>우리가 만드는 가치</h2>
         <div className="website-service-grid">{current.services.filter(s => s.trim()).map((service, i) => <article key={i}><span>{String(i + 1).padStart(2, '0')}</span><h3>{service}</h3></article>)}</div>

@@ -8,8 +8,8 @@
 | task-004 | 벤치마크 분석·초안 생성 범위 구체화와 구현 (명세: tasks/task-004.md) | W2 | — | 높음 | builder | 완료 |
 | task-005 | 공개 운영 환경·백업·복구·모니터링 검증 (명세: tasks/task-005.md, 1단계 완료 2026-11-02·2단계 도메인 후) | W3 | task-003 | 높음 | builder | 진행 |
 | task-006 | 편집기 필수 입력 한 번에 안내·페이지 주소 자동 제안 (명세: tasks/task-006.md) | W4 | — | 보통 | builder | 완료 |
-| task-007 | 갤러리 섹션·페이지별 후기/FAQ (명세: tasks/task-007.md, REVISE 반영) | W4 | task-006 | 높음 | builder | 진행 |
-| task-008 | 계정별 자료 분리 (명세: tasks/task-008.md, 결정 9장) | W4 | task-007 | 높음 | builder | 대기 |
+| task-007 | 갤러리 섹션·페이지별 후기/FAQ (명세: tasks/task-007.md, REVISE 반영) | W4 | task-006 | 높음 | builder | 완료 |
+| task-008 | 계정별 자료 분리 (명세: tasks/task-008.md, 결정 9장) | W4 | task-007 | 높음 | builder | 진행 |
 
 상태: 대기 / 진행 / 완료 / 보류. 근거는 README `진행 현황` 절의 "다음 개발 단계"입니다.
 
@@ -23,6 +23,7 @@
 | 2026-11-01 | app/api/websites/[id]/route.ts, lib/server/accounts.ts, lib/server/website-requirements.ts:18 | 웹사이트 PATCH 무인증, 운영자 이메일 선점 가입 가능, 운영자 목록이 비면 Host 헤더로 권한 판정 (challenger 지적) | task-005 착수 전 필수 수정 |
 | 2026-11-01 | .env.example | 권한 설정으로 생성이 막혀 문의 알림 변수는 README `문의 알림 환경 변수`에만 정리 | 필요 시 사용자가 생성 |
 | 2026-11-01 | 웹사이트 초안 | 고객 기존 사이트 URL 분석(대안 B, SSRF·저작권 제약 필요) | 후속 task |
+| 2026-11-02 | lib/access-policy.ts, app/websites/[id]/page.tsx | 미인증 요청마다 사이트·미디어 전체를 읽음(task-007 보안 리뷰 🟡) | 다계정 이후 mtime 캐시나 요청 수 제한 |
 | 2026-11-02 | 웹사이트 편집기 | 문의 섹션을 끈 상태에서 홈 문의 링크가 잘못되면 빠진 항목 목록에는 나오지만 포커스할 입력이 없음(task-006) | 숨은 필드 검사 제외 또는 섹션 펼침 |
 | 2026-11-01 | 실기기 검수 | 390px 폭(Chrome iframe)만 확인, iOS Safari·Android 실기기 터치 흐름 미확인 | task-005 또는 베타 전 실기기 확인 |
 

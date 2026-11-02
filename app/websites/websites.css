@@ -38,3 +38,4 @@
 @media(max-width:767px){.website-inquiry-form{margin-top:20px}.website-inquiry-form label{font-size:13px}}
 @media(min-width:768px) and (max-width:1199px){.website-inquiry-form label{font-size:14px}}
 @media(min-width:1200px){.website-inquiry-form label{font-size:15px}}
+.website-gallery-editor{display:grid;gap:14px}.website-gallery-thumb{display:block;width:100%;max-width:240px;aspect-ratio:4/3;object-fit:cover;border-radius:8px}

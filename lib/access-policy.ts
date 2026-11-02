@@ -1,6 +1,7 @@
 // Access rules for proxy.ts (no 'server-only': proxy bundles cannot import it). Everything not listed here needs a session.
 import {readFile, readdir} from 'node:fs/promises';
 import path from 'node:path';
+import {validateWebsiteBrief, websiteGalleryImageIds} from './website';
 export type ApiAccess = 'public'|'public-media'|'private';
 // Exact path + method. HEAD is treated as GET.
 const PUBLIC_API: Record<string, string[]> = {
@@ -30,7 +31,8 @@ export function isPublicPage(pathname: string) {
 export function isStaticAsset(pathname: string) {
   return pathname.startsWith('/_next/') || /^\/[^/]+\.[a-zA-Z0-9]{1,12}$/.test(pathname) || /^\/(photos|models|templates)\//.test(pathname);
 }
-// A media item is public only while some saved website uses it as the home or page cover image.
+// A media item is public only while some saved website uses it as a cover image or in a gallery section that is switched on
+// (same resolution as the preview/export via websiteGalleryImageIds). No cache: switching a section off or deleting applies at once.
 export async function isWebsiteCoverImage(id: string) {
   if (!/^[a-zA-Z0-9-]{1,80}$/.test(id)) return false;
   const directory = path.join(process.cwd(), '.local-data', 'websites');
@@ -39,6 +41,7 @@ export async function isWebsiteCoverImage(id: string) {
     try {
       const site = JSON.parse(await readFile(path.join(directory, name), 'utf8')) as {heroImageId?: unknown; pages?: {heroImageId?: unknown}[]};
       if (site.heroImageId === id || (Array.isArray(site.pages) && site.pages.some(page => page?.heroImageId === id))) return true;
+      try { if (websiteGalleryImageIds(validateWebsiteBrief(site)).includes(id)) return true; } catch {}
     } catch {}
   }
   return false;

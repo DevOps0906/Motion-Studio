@@ -1,7 +1,7 @@
 # NOW — 재진입 스냅샷 (30줄 이내, 매 작업 끝에 덮어쓴다)
 
 - 갱신: 2026-11-02
-- 현재 작업: W4 — task-006 완료(커밋), task-007 builder 구현 중(명세 4장 우선), task-008 명세 확정(10장 우선, task-007 후 구현)
+- 현재 작업: W4 — task-006·007 완료(커밋), task-008 계정별 자료 분리 착수(명세 10장 우선, 위험 높음: 구현 후 reviewer code+security)
 - 마지막으로 한 일: 리뷰(Opus code·Fable security) 지적 3건 반영(오류 로그 instrumentation 연결, 로그인 전역 제한은 없는 이메일만, /_next/image 공개 폴더 한정), 브라우저 verify 스크립트 세션 주입. Docker 격리 컨테이너(임시 데이터)에서 health·비root·로그인·401/307·가입 차단·저장·공개 미리보기·문의·대표 이미지 공개·백업(0700)·복구 거부/복원 확인. 실제 .local-data는 백업(backups/20261101-181921) 후 QA 계정 3·세션 1·문의 1·QA 웹사이트 1 삭제. README 진행률 75%
 - 다음 한 걸음: 운영자 계정(skydy96@gmail.com) 생성·터널 로그인·Secure 쿠키·운영자 문의함 확인 완료(2026-11-02). 남은 결정: Dependabot PR, Discord/Slack 웹훅, 도메인
 - 열린 결정(사용자 확인 필요): 도메인, Dependabot PR #1~#4 병합, Resend·Slack·Discord 키, 운영자 이메일
