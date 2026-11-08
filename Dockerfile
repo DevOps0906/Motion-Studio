@@ -1,4 +1,4 @@
-﻿# task-011: whisper.cpp is built from a pinned source commit (v1.9.5). Nothing is downloaded at install or run time; only the executable is copied into the final image. Not built on the dev PC yet (unverified).
+# task-011: whisper.cpp is built from a pinned source commit (v1.9.5). Nothing is downloaded at install or run time; only the executable is copied into the final image. Not built on the dev PC yet (unverified).
 FROM debian:bookworm-slim AS whisper-build
 ARG WHISPER_COMMIT=d1be6fde11ac6e0407606b4e42fe72d34add8037
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential cmake git ca-certificates \
@@ -10,7 +10,7 @@ RUN git init /src && cd /src \
     && cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DWHISPER_BUILD_TESTS=OFF \
     && cmake --build build -j"$(nproc)" --target whisper-cli
 
-FROM node:24-bookworm-slim
+FROM node:25-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     STT_MODEL_DIR=/app/models-stt \
